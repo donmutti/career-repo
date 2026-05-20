@@ -1,15 +1,35 @@
+# IDE
 /.idea/
+
+# Python
 __pycache__/
 *.pyc
-.DS_Store
-db/career.db
-db/.index.json
-db/config.yml
-token.json
-credentials.json
-node_modules/
+*.egg-info/
+
+# Python venv
+venv/
+
+# Database (binary files, not git-tracked)
+db/data.db
+db/data.db-shm
+db/data.db-wal
+
+# Database (backups, not git-tracked)
+db/*.json.bak
+
+# UI
 ui/node_modules/
-dist/
-/db/career.db-shm
-/db/career.db-wal
-/ui/.vite
+ui/dist/
+ui/src/api/generated/
+
+# macOS
+.DS_Store
+
+# Claude Code (local/personal, except shared commands, skills, and agents)
+.claude/**
+!.claude/agents/
+!.claude/agents/**
+!.claude/skills/
+!.claude/skills/**
+!.claude/commands/
+!.claude/commands/**

@@ -1,0 +1,29 @@
+import {LucideIcon} from 'lucide-react'
+import {formatCount} from '@/shared/utils/FormatUtils'
+
+interface InboxTypeRowProps {
+  label: string
+  icon: LucideIcon
+  selected: boolean
+  onClick: () => void
+  count?: number
+  allSorted?: boolean
+}
+
+export function InboxTypeRow({label, icon: Icon, selected, onClick, count, allSorted}: InboxTypeRowProps) {
+  const hasUnsorted = count != null && count > 0 && !allSorted
+
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-2 w-full px-3 py-2 text-left ${selected ? 'text-action hovered' : 'text-label-dark hoverable'}`}
+    >
+      <Icon size={16} className="shrink-0"/>
+      <span className="flex-1 text-base text-label-darker">{label}</span>
+      <span className="flex items-center gap-1.5 shrink-0">
+        {hasUnsorted && <span className="attention-dot"/>}
+        <span className="text-sm text-label-medium w-6 text-right">{formatCount(count ?? 0)}</span>
+      </span>
+    </button>
+  )
+}

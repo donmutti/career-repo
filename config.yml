@@ -1,0 +1,13 @@
+api:
+  host: "127.0.0.1"
+  port: 8000
+
+ui:
+  port: 3000
+
+db:
+  path: "./db/data.db"
+  dump_path: "./db/data.json"
+  attachment_path: "./db/attachments"
+  resumes_path: "./db/resumes"
+  images_path: "./db/images"
