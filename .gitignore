@@ -1,0 +1,15 @@
+/.idea/
+__pycache__/
+*.pyc
+.DS_Store
+db/career.db
+db/.index.json
+db/config.yml
+token.json
+credentials.json
+node_modules/
+ui/node_modules/
+dist/
+/db/career.db-shm
+/db/career.db-wal
+/ui/.vite
