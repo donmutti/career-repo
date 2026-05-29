@@ -52,23 +52,22 @@ export function JobView({opportunityId}: JobViewProps) {
 
   })
 
-  const [elapsedSecs, setElapsedSecs] = useState(0)
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [, setTick] = useState(0)
+  const localScoringStartRef = useRef<number | null>(null)
+  if (isSourcing && localScoringStartRef.current === null) localScoringStartRef.current = Date.now()
+  if (!isChanging) localScoringStartRef.current = null
   useEffect(() => {
-    if (isChanging) {
-      const raw = opportunity?.sourcing_started_at
-      const parsed = raw ? new Date(/[Z+]/.test(raw) ? raw : raw + 'Z').getTime() : Date.now()
-      const startedAt = (Date.now() - parsed) > 10_000 ? Date.now() : parsed
-      setElapsedSecs(Math.floor((Date.now() - startedAt) / 1000))
-      timerRef.current = setInterval(() => {
-        setElapsedSecs(Math.floor((Date.now() - startedAt) / 1000))
-      }, 1000)
-    } else {
-      if (timerRef.current) clearInterval(timerRef.current)
-      setElapsedSecs(0)
-    }
-    return () => { if (timerRef.current) clearInterval(timerRef.current) }
-  }, [isChanging, opportunity?.sourcing_started_at])
+    if (!isChanging) return
+    const id = setInterval(() => setTick(t => t + 1), 1000)
+    return () => clearInterval(id)
+  }, [isChanging, opportunityId])
+  const serverStart = opportunity?.sourcing_started_at
+    ? new Date(/[Z+]/.test(opportunity.sourcing_started_at) ? opportunity.sourcing_started_at : opportunity.sourcing_started_at + 'Z').getTime()
+    : null
+  const scoringStart = localScoringStartRef.current != null && (serverStart == null || serverStart < localScoringStartRef.current)
+    ? localScoringStartRef.current
+    : serverStart
+  const elapsedSecs = isChanging && scoringStart != null ? Math.floor((Date.now() - scoringStart) / 1000) : 0
 
   const [coverLetterElapsed, setCoverLetterElapsed] = useState(0)
   const coverLetterTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -205,7 +204,10 @@ export function JobView({opportunityId}: JobViewProps) {
               label="Cover letters"
               count={isGeneratingCoverLetter ? undefined : attachmentList.length}
               status={isGeneratingCoverLetter
-                ? <><Spinner/> Generating for {formatDuration(coverLetterElapsed)}… <IconButton icon={X} label="Cancel" danger onClick={(e) => { e.stopPropagation(); cancelCoverLetter() }}/></>
+                ? <><Spinner/> Generating for {formatDuration(coverLetterElapsed)}… <IconButton icon={X} label="Cancel" danger onClick={(e) => {
+                  e.stopPropagation();
+                  cancelCoverLetter()
+                }}/></>
                 : undefined
               }
               actions={isGeneratingCoverLetter ? [] : [{
