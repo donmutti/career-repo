@@ -87,7 +87,10 @@ async def patch_email_opportunity(eo_id: str, body: PatchEmailOpportunityDto):
 
         asyncio.create_task(_source())
 
-    if body.status == "pending" and eo.opportunity_id:
+    if body.status in ("pending", "skipped") and eo.opportunity_id:
+        active_runs = agent_run_dao.list_active_for_opportunity(eo.opportunity_id)
+        for run in active_runs:
+            await claude.cancel(run.id)
         opportunity_dao.delete(eo.opportunity_id)
         opportunity_id = None
 
