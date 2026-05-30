@@ -1,4 +1,4 @@
-import {Suspense} from 'react'
+import {Suspense, useCallback, useRef, useState} from 'react'
 import {ToastContainer} from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 import {Navigate, Outlet, ScrollRestoration, useLocation} from 'react-router'
@@ -6,7 +6,8 @@ import {QueryClientProvider, useQuery} from '@tanstack/react-query'
 import * as RadixTooltip from '@radix-ui/react-tooltip'
 import {queryClient} from '@/services/queryClient'
 import {AppContext} from './AppContext'
-import {Sidebar} from './Sidebar'
+import {Sidebar, SidebarButton, SidebarFlashingButton} from './Sidebar'
+import {ActionIntent} from '@/shared/types'
 import {system} from '@/services/client'
 import {queryKeys} from '@/services/queryKeys'
 import {Spinner} from '@/shared/controls/Spinner'
@@ -26,6 +27,14 @@ function AppShell() {
     queryFn: system.status,
   })
 
+  const [sidebarFlashingButton, setSidebarFlashingButton] = useState<SidebarFlashingButton | null>(null)
+  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const flashSidebarButton = useCallback((button: SidebarButton, intent: ActionIntent) => {
+    if (flashTimerRef.current) clearTimeout(flashTimerRef.current)
+    setSidebarFlashingButton(_prev => ({button, intent}))
+    flashTimerRef.current = setTimeout(() => setSidebarFlashingButton(null), 600)
+  }, [])
+
   if (isLoading || !status) return <FullScreenSpinner/>
 
   if (location.pathname === '/onboarding') {
@@ -40,10 +49,10 @@ function AppShell() {
   if (!status.profile_exists) return <Navigate to="/onboarding" replace/>
 
   return (
-    <AppContext.Provider value={{status, isLoading}}>
+    <AppContext.Provider value={{status, isLoading, flashSidebarButton}}>
       <ScrollRestoration/>
       <div className="flex h-screen overflow-hidden">
-        <Sidebar/>
+        <Sidebar flashingButton={sidebarFlashingButton}/>
         <main className="flex-1 overflow-hidden flex flex-col">
           <Suspense fallback={<FullScreenSpinner/>}>
             <Outlet/>

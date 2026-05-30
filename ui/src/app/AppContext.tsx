@@ -1,4 +1,6 @@
 import {createContext, useContext} from 'react'
+import {SidebarButton} from './Sidebar'
+import {ActionIntent} from '@/shared/types'
 
 interface SystemStatus {
   profile_exists: boolean
@@ -10,6 +12,7 @@ interface SystemStatus {
 interface AppContextValue {
   status: SystemStatus
   isLoading: boolean
+  flashSidebarButton: (button: SidebarButton, intent: ActionIntent) => void
 }
 
 export const AppContext = createContext<AppContextValue>({} as AppContextValue)

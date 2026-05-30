@@ -413,6 +413,24 @@
   to { transform: rotate(360deg); }
 }
 
+.flash-add {
+  animation: flash-add 0.6s ease-out forwards;
+}
+
+.flash-delete {
+  animation: flash-delete 0.6s ease-out forwards;
+}
+
+@keyframes flash-add {
+  0%   { background-color: color-mix(in srgb, var(--color-intent-info) 30%, transparent); color: var(--color-intent-info); }
+  100% { background-color: transparent; color: var(--color-label-medium); }
+}
+
+@keyframes flash-delete {
+  0%   { background-color: color-mix(in srgb, var(--color-intent-danger) 30%, transparent); color: var(--color-intent-danger); }
+  100% { background-color: transparent; color: var(--color-label-medium); }
+}
+
 @utility steps {
   display: flex;
   gap: 4px;

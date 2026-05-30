@@ -1,5 +1,6 @@
 import {useState} from 'react'
 import {useMutation, useQuery} from '@tanstack/react-query'
+import {useAppContext} from '@/app/AppContext'
 import {ChevronDown, ChevronRight, ExternalLink} from 'lucide-react'
 import {queryKeys} from '@/services/queryKeys'
 import {inbox as inboxApi} from '@/services/client'
@@ -9,7 +10,6 @@ import {TextEdit} from '@/shared/controls/edits/TextEdit'
 import {ShowMoreView} from '@/shared/controls/views/ShowMoreView'
 import {InboxEmailOpportunityRow} from './InboxEmailOpportunityRow'
 import {DateLabel} from '@/shared/controls/DateLabel'
-import {toastInfo} from '@/shared/utils/ToastUtils'
 import {OPP_TYPE_SINGULAR} from '@/app/opportunities/OpportunityTypes'
 import {InboxEmailOpportunity} from '@/app/inbox/InboxTypes'
 
@@ -28,6 +28,7 @@ interface InboxEmailViewProps {
 }
 
 export function InboxEmailView({emailId}: InboxEmailViewProps) {
+  const {flashSidebarButton} = useAppContext()
   const [bodyExpanded, setBodyExpanded] = useState(true)
   const [oppsExpanded, setOppsExpanded] = useState<Record<string, boolean>>({
     job: true, project: true, education: true, networking: true, learning: true
@@ -52,7 +53,7 @@ export function InboxEmailView({emailId}: InboxEmailViewProps) {
   })
 
   const patchOppMutation = useMutation({
-    mutationFn: ({id, status}: { id: string; status: string }) =>
+    mutationFn: ({id, status}: { id: string; status: string; hadOpportunity?: boolean }) =>
       inboxApi.patchEmailOpportunity(id, {status}),
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({queryKey: queryKeys.inboxEmailOpportunities(emailId)})
@@ -62,10 +63,10 @@ export function InboxEmailView({emailId}: InboxEmailViewProps) {
         queryClient.invalidateQueries({queryKey: queryKeys.opportunities})
       }
       if (variables.status === 'extracted') {
-        toastInfo('Job opportunity saved.')
+        flashSidebarButton('opportunities', 'add')
       }
-      if (variables.status === 'skipped') {
-        toastInfo('Job opportunity declined.')
+      if ((variables.status === 'skipped' || variables.status === 'pending') && variables.hadOpportunity) {
+        flashSidebarButton('opportunities', 'delete')
       }
     },
   })
@@ -158,8 +159,8 @@ export function InboxEmailView({emailId}: InboxEmailViewProps) {
                       key={item.id}
                       item={item}
                       onExtract={(id) => patchOppMutation.mutate({id, status: 'extracted'})}
-                      onSkip={(id) => patchOppMutation.mutate({id, status: 'skipped'})}
-                      onReset={(id) => patchOppMutation.mutate({id, status: 'pending'})}
+                      onSkip={(id) => patchOppMutation.mutate({id, status: 'skipped', hadOpportunity: !!item.opportunity_id})}
+                      onReset={(id) => patchOppMutation.mutate({id, status: 'pending', hadOpportunity: !!item.opportunity_id})}
                     />
                   ))}
                 </div>

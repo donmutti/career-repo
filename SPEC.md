@@ -1555,6 +1555,8 @@ Top-aligned navigation buttons (Radix Tooltip + button):
 
 Active button: action-colored icon + `hovered` background.
 
+Button flash: when an opportunity is added or removed, the Opportunities button briefly flashes — blue (`flash-add`) on add, red (`flash-delete`) on remove. Triggered by `flashSidebarButton(button, intent)` from `AppContext`.
+
 ### 7.9. Pages
 
 #### 7.9.1. Onboarding
@@ -1720,15 +1722,12 @@ Scan inbox:
 - System deduplicates by `external_id`, stores new `InboxEmail` records, and creates `EmailOpportunity` stubs (`status: pending`) for each detected opportunity.
 - Inbox page shows newly surfaced emails; attention dot appears on emails and sidebar until sorted.
 
-Sort email opportunities:
+Triage email opportunities:
 
 - User opens an email; extracted `EmailOpportunity` items are shown grouped by type.
-- User accepts (status → `extracted`, creates `Opportunity`) or skips (status → `skipped`) each item.
-- When all items are sorted, the attention dot clears for that email.
-
-Extract opportunities from email:
-
-- User clicks "Extract" on an email detail view.
-- System calls `POST /inbox/{id}/extract`; Claude analyses the email body and returns opportunity dicts.
-- System creates `Opportunity` records with `opened_on` set to the email's `received_at`.
-- Opportunities appear on the Opportunities page.
+- User clicks "Save" to save; `EmailOpportunity` status set to `extracted`, an associated `Opportunity` is created and sent for sourcing.
+- User clicks "Save" to un-save; `EmailOpportunity` status set to `pending`, the associated `Opportunity` is deleted and any active agent run on it is canceled.
+- User clicks "Decline" to skip; `EmailOpportunity` status set to `skipped`; if associated `Opportunity` existed, it is deleted and any active agent run on it is canceled.
+- User clicks "Decline" to un-skip; `EmailOpportunity` status set to `skipped`.
+- When all email opportunities for an email are triaged, the attention dot clears for that email.
+- When all emails are triaged for the selected filter group, the attention dot clears for that filter group.

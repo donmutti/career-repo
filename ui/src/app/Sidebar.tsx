@@ -2,10 +2,22 @@ import {useLocation, useNavigate} from 'react-router'
 import {useQuery} from '@tanstack/react-query'
 import {BriefcaseBusiness, Mail, User} from 'lucide-react'
 import {queryKeys} from '@/services/queryKeys'
-import {profile as profileApi, inbox as inboxApi} from '@/services/client'
+import {inbox as inboxApi, profile as profileApi} from '@/services/client'
 import {Tooltip} from '@/shared/controls/Tooltip'
+import {ActionIntent} from '@/shared/types'
 
-export function Sidebar() {
+export type SidebarButton = 'profile' | 'inbox' | 'opportunities'
+
+export interface SidebarFlashingButton {
+  button: SidebarButton
+  intent: ActionIntent
+}
+
+interface SidebarProps {
+  flashingButton: SidebarFlashingButton | null
+}
+
+export function Sidebar({flashingButton}: SidebarProps) {
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -18,7 +30,7 @@ export function Sidebar() {
     queryKey: queryKeys.inboxCounts,
     queryFn: inboxApi.counts,
   })
-  const counts = countsData as {today: number; yesterday: number; last7: number; last30: number; today_all_sorted: boolean; yesterday_all_sorted: boolean; last7_all_sorted: boolean; last30_all_sorted: boolean} | undefined
+  const counts = countsData as { today: number; yesterday: number; last7: number; last30: number; today_all_sorted: boolean; yesterday_all_sorted: boolean; last7_all_sorted: boolean; last30_all_sorted: boolean } | undefined
   const hasUnsorted = !!(
     (counts?.today ?? 0) > 0 && !counts?.today_all_sorted ||
     (counts?.yesterday ?? 0) > 0 && !counts?.yesterday_all_sorted ||
@@ -34,6 +46,8 @@ export function Sidebar() {
   const fullName = av?.full_name ?? 'You'
   const hasAvatar = !!av?.avatar_file_name
 
+  const flashButton = (button: SidebarButton) => flashingButton?.button === button ? flashingButton : null
+
   return (
     <aside className="bg-panel-lighter border-r border-frame-lighter flex flex-col shrink-0 w-14">
       <div className="flex-1 flex flex-col items-center pt-3 gap-y-3 ">
@@ -42,10 +56,12 @@ export function Sidebar() {
             onClick={() => navigate('/profile/info')}
             className={`flex items-center justify-center rounded-md w-10 h-10 ${isProfile ? 'hovered text-action' : 'hoverable hoverable-text text-label-medium'}`}
           >
-            {hasAvatar
-              ? <img src={`/api/profile/avatar?f=${av?.avatar_file_name}`} alt={fullName} className="w-7 h-7 rounded-full object-cover"/>
-              : <User size={20}/>
-            }
+            <span className={`flex items-center justify-center w-full h-full rounded-md ${flashButton('profile') ? `flash-${flashButton('profile')!.intent}` : ''}`}>
+              {hasAvatar
+                ? <img src={`/api/profile/avatar?f=${av?.avatar_file_name}`} alt={fullName} className="w-7 h-7 rounded-full object-cover"/>
+                : <User size={20}/>
+              }
+            </span>
           </button>
         </Tooltip>
 
@@ -54,7 +70,9 @@ export function Sidebar() {
             onClick={() => navigate('/inbox')}
             className={`relative flex items-center justify-center rounded-md w-10 h-10 ${isInbox ? 'hovered text-action' : 'hoverable hoverable-text text-label-medium'}`}
           >
-            <Mail size={20}/>
+            <span className={`flex items-center justify-center w-full h-full rounded-md ${flashButton('inbox') ? `flash-${flashButton('inbox')!.intent}` : ''}`}>
+              <Mail size={20}/>
+            </span>
             {hasUnsorted && <span className="attention-dot absolute top-0.5 right-0.5"/>}
           </button>
         </Tooltip>
@@ -64,7 +82,9 @@ export function Sidebar() {
             onClick={() => navigate('/opportunities/jobs')}
             className={`flex items-center justify-center rounded-md w-10 h-10 ${isOpportunities ? 'hovered text-action' : 'hoverable hoverable-text text-label-medium'}`}
           >
-            <BriefcaseBusiness size={20}/>
+            <span className={`flex items-center justify-center w-full h-full rounded-md ${flashButton('opportunities') ? `flash-${flashButton('opportunities')!.intent}` : ''}`}>
+              <BriefcaseBusiness size={20}/>
+            </span>
           </button>
         </Tooltip>
       </div>
