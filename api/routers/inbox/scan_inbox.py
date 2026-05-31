@@ -69,7 +69,8 @@ async def scan_inbox():
                 agent_run_dao.fail(run.id, f"Preflight failed: {e}")
                 return
 
-            agent_run_dao.set_meta(run.id, {"current": 0, "total": total, "preparing": False})
+            batch_size = get_inbox_scan_batch_size()
+            agent_run_dao.set_meta(run.id, {"current": min(batch_size, total), "total": total, "preparing": False})
             logger.info("Preflight complete: total=%d query=%r", total, scan_query)
 
             # Batch scan loop
