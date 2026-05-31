@@ -37,6 +37,18 @@ class EmailOpportunityDAO(BaseEntityDAO[EmailOpportunity]):
         self._save()
         return self.get(eo_id)
 
+    def decline_pending_for_emails(self, inbox_email_ids: List[str]) -> int:
+        """Set pending email opportunities to skipped for the given emails. Returns count updated."""
+        if not inbox_email_ids:
+            return 0
+        placeholders = ",".join("?" * len(inbox_email_ids))
+        cursor = self._execute(
+            f"update email_opportunity set status = 'skipped' where status = 'pending' and inbox_email_id in ({placeholders})",
+            tuple(inbox_email_ids),
+        )
+        self._save()
+        return cursor.rowcount
+
     def delete(self, eo_id: str) -> None:
         self._execute("delete from email_opportunity where id = ?", (eo_id,))
         self._save()

@@ -1,11 +1,14 @@
 import {useNavigate, useOutletContext, useParams} from 'react-router'
-import {useQuery} from '@tanstack/react-query'
+import {useQuery, useQueryClient} from '@tanstack/react-query'
 import {useState} from 'react'
 import {LocalStorageUtils} from '@/shared/utils/LocalStorageUtils'
-import {Mail} from 'lucide-react'
+import {Mail, MoreVertical} from 'lucide-react'
 import {Pane, PaneBody, PaneHeader, PaneResizeHandle} from '@/shared/controls/panes/Panes'
 import {ListView} from '@/shared/controls/views/ListView'
 import {EmptyState} from '@/shared/controls/views/EmptyState'
+import {DropdownButton} from '@/shared/controls/buttons/DropdownButton'
+import {IconButton} from '@/shared/controls/buttons/IconButton'
+import {ConfirmationDialog} from '@/shared/controls/dialogs/ConfirmationDialog'
 import {InboxEmailRow} from './InboxEmailRow'
 import {InboxEmailView} from './InboxEmailView'
 import {TIME_WINDOWS} from './InboxTypes'
@@ -41,8 +44,11 @@ function getDateRange(windowKey: string): {from_date: string; to_date: string} {
 export default function InboxListPage() {
   const {id: selectedId} = useParams<{id: string}>()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const {activeWindow} = useOutletContext<InboxContext>()
   const [listWidth, setListWidth] = useState(() => LocalStorageUtils.get('pane.inbox.list', 500))
+  const [declineConfirmOpen, setDeclineConfirmOpen] = useState(false)
+  const [isDeclinePending, setIsDeclinePending] = useState(false)
 
   const activeLabel = TIME_WINDOWS.find(w => w.key === activeWindow)?.label ?? 'Emails'
   const dateRange = getDateRange(activeWindow)
@@ -67,11 +73,36 @@ export default function InboxListPage() {
   const totalWithOppos = emails.filter(e => sortedCounts[e.id]).length
 
   const unsortedEmails = totalWithOppos - sortedEmails
-  const headerActions = totalWithOppos > 0 ? (
-    <span className="flex items-center gap-1.5 text-sm text-label-medium">
-      {unsortedEmails === 0 ? `All ${totalWithOppos}/${totalWithOppos} sorted` : `${unsortedEmails} ${pluralize(unsortedEmails, 'decision', 'decisions')} to make`}
-    </span>
-  ) : undefined
+  const pendingCount = emails.reduce((sum, e) => {
+    const c = sortedCounts[e.id]
+    return sum + (c ? c[1] - c[0] : 0)
+  }, 0)
+
+  async function handleDeclineConfirm() {
+    setIsDeclinePending(true)
+    await inboxApi.declinePending(emails.map(e => e.id))
+    queryClient.invalidateQueries({queryKey: queryKeys.inboxSortedCounts})
+    queryClient.invalidateQueries({queryKey: queryKeys.inboxCounts})
+    setIsDeclinePending(false)
+    setDeclineConfirmOpen(false)
+  }
+
+  const headerActions = (
+    <div className="flex items-center gap-3">
+      {totalWithOppos > 0 && (
+        <span className="flex items-center gap-1.5 text-sm text-label-medium">
+          {unsortedEmails === 0 ? `All ${totalWithOppos} sorted` : `${unsortedEmails} ${pluralize(unsortedEmails, 'decision', 'decisions')} to make`}
+        </span>
+      )}
+      <DropdownButton
+        trigger={<IconButton icon={MoreVertical} label="More options"/>}
+        items={[
+          {label: 'Decline all pending...', onClick: () => setDeclineConfirmOpen(true)},
+        ]}
+        align="end"
+      />
+    </div>
+  )
 
   return (
     <>
@@ -116,6 +147,17 @@ export default function InboxListPage() {
         LocalStorageUtils.set('pane.inbox.list', n)
         return n
       })}/>
+
+      <ConfirmationDialog
+        open={declineConfirmOpen}
+        onOpenChange={setDeclineConfirmOpen}
+        title="Decline all pending"
+        body={`Decline ${pendingCount} pending ${pluralize(pendingCount, 'opportunity', 'opportunities')} in "${activeLabel}"?`}
+        primaryActionLabel="Decline all"
+        severity="warning"
+        onConfirm={handleDeclineConfirm}
+        isSubmitting={isDeclinePending}
+      />
 
       {/* Detail pane */}
       <Pane>

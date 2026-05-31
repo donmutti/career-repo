@@ -95,3 +95,14 @@ async def patch_email_opportunity(eo_id: str, body: PatchEmailOpportunityDto):
         opportunity_id = None
 
     return email_opp_dao.set_status(eo_id, body.status, opportunity_id)
+
+
+class DeclinePendingDto(BaseModel):
+    email_ids: list[str]
+
+
+@router.post("/opportunities/decline-pending")
+def decline_pending(body: DeclinePendingDto):
+    """Set all pending email opportunities to skipped for the given emails."""
+    count = email_opp_dao.decline_pending_for_emails(body.email_ids)
+    return {"count": count}
