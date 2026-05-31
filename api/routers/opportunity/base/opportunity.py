@@ -22,7 +22,7 @@ from ....models import (
     Attachment, AttachmentType, CreateAttachmentRequestDto,
     AgentRun,
 )
-from ....services.ai import ClaudeService, ClaudeError
+from ....services.ai import ClaudeError, claude
 from ....services.files import FileService
 
 router = APIRouter(prefix="/opportunities", tags=["opportunities"])
@@ -34,7 +34,6 @@ work_experience_dao = WorkExperienceDAO()
 comment_dao = CommentDAO()
 attach_dao = AttachmentDAO()
 agent_run_dao = AgentRunDAO()
-claude = ClaudeService(agent_run_dao)
 files = FileService(ROOT / get_attachment_path())
 
 

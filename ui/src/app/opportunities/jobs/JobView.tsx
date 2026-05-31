@@ -216,7 +216,7 @@ export function JobView({opportunityId}: JobViewProps) {
             >
               {attachmentList.length > 0
                 ? <ListView items={attachmentList} renderItem={(a) => <AttachmentRow attachment={a} onDelete={() => deleteAttachment(a.id)}/>}/>
-                : !isGeneratingCoverLetter && <span className="ml-2 px-3 py-1 text-sm text-label-light">No cover letters</span>
+                : !isGeneratingCoverLetter && <span className="ml-2 px-3 py-1 text-label-light">No cover letters</span>
               }
             </GroupView>
           </div>

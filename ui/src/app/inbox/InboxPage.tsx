@@ -41,7 +41,7 @@ export default function InboxPage() {
   })
   const counts = countsData as { today: number; yesterday: number; last7: number; last30: number; today_all_sorted: boolean; yesterday_all_sorted: boolean; last7_all_sorted: boolean; last30_all_sorted: boolean } | undefined
 
-  const {scanning, elapsed, start, cancel} = useInboxScan(activeWindow)
+  const {scanning, elapsed, progress, start, cancel} = useInboxScan(activeWindow)
 
   const clearMutation = useMutation({
     mutationFn: inboxApi.clear,
@@ -63,7 +63,12 @@ export default function InboxPage() {
               {scanning ? (
                 <>
                   <Spinner className="text-label-medium"/>
-                  <span className="text-sm text-label-medium truncate">Scanning for {formatDuration(elapsed)}…</span>
+                  <span className="text-sm text-label-medium truncate">
+                    {!progress || progress.preparing
+                      ? `Preparing scan… ${formatDuration(elapsed)}`
+                      : `Scanning ${progress.current}/${progress.total} emails for ${formatDuration(elapsed)}…`
+                    }
+                  </span>
                   <IconButton icon={X} label="Cancel scan" danger onClick={() => cancel()}/>
                 </>
               ) : (

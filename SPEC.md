@@ -90,6 +90,9 @@ Runtime settings live in `config.yml` at the repo root. The API reads this file 
 - `db.attachment_path` — root directory for generated attachments (default: ./db/attachments)
 - `db.resumes_path` — root directory for uploaded resume files (default: ./db/resumes)
 - `db.images_path` — root directory for uploaded images (default: ./db/images)
+- `inbox.scan_days` — how many days back to scan Gmail on first scan; subsequent scans use `last_scanned_at` as the `after:` date (default: 30)
+- `inbox.scan_batch_size` — number of emails per batch (default: 10)
+- `inbox.scan_keywords` — list of search terms used to filter career-related emails
 
 ---
 
@@ -285,6 +288,7 @@ AgentRun (mutable entity) — log of a single AI invocation:
 - opportunity_id: UUID (optional) — associated opportunity
 - output: string (optional) — final assistant text
 - completed_at: timestamp (optional)
+- meta: JSON object (optional) — arbitrary agent-specific progress data (e.g. `{ current: 50, total: 300 }` for batch scans)
 
 ---
 
@@ -672,6 +676,7 @@ AgentRun (BaseEntity):
 - opportunity_id: str (optional)
 - output: str (optional)
 - completed_at: datetime (optional)
+- meta: dict (optional) — arbitrary agent-specific progress data; stored as JSON
 
 ### 6.2. DAOs
 
@@ -789,6 +794,7 @@ AgentRunDAO (BaseEntityDAO[AgentRun]):
 - `complete(run_id, output): None`
 - `cancel(run_id): None`
 - `fail(run_id, output): None`
+- `set_meta(run_id, meta: dict): None` — updates the `meta` field; used for progress reporting during long-running scans
 - `delete(run_id): None`
 
 ### 6.3. Services
@@ -826,7 +832,7 @@ All Claude invocations flow through one private primitive: `_run_stream()`. It o
 2. Serializes `payload` to JSON and sends as the user message: `<input>{json}</input>`.
 3. Resolves the tool allowlist from `command_path` via the per-command table below.
 4. Creates an `AgentRun` record (status `running`); registers the running task in an in-memory `run_id` to `asyncio.Task` map.
-5. Invokes `claude_agent_sdk.query()` with `allowed_tools`, `permission_mode='bypassPermissions'`, `max_turns=5`, and a 180s timeout.
+5. Invokes `claude_agent_sdk.query()` with `allowed_tools`, `permission_mode='bypassPermissions'`, `max_turns=5`, and a per-operation timeout (see public surface below).
 6. Iterates SDK messages; yields a `StreamEvent` for each text chunk, tool use, and tool result; accumulates assistant text and tracks `usage` / `total_cost_usd` from the final result message.
 7. On completion: updates `AgentRun` with output and `completed_at`; emits final `done` event carrying cost/duration/model/run_id; removes task from registry.
 8. On failure or timeout: marks `AgentRun` `failed`; emits `error` event with `run_id` and `message`; removes task from registry; raises `ClaudeError`.
@@ -848,12 +854,13 @@ Every stream ends with exactly one terminal event: `done`, `cancelled`, or `erro
 ClaudeService:
 
 - `__init__(agent_run_dao)` — DAO injected for run persistence
-- `async scan_inbox(max_results=50, existing_run_id?): ClaudeResult[list[dict]]`
-- `async extract_opportunities(email_content): ClaudeResult[list[dict]]`
-- `async source_opportunity(opportunity, profile?, work_experiences?, run_id?): ClaudeResult[dict]`
-- `async parse_work_experience_from_resume(resume_text, run_id?): ClaudeResult[dict]`
-- `async generate_markdown_attachment(attachment_type, opportunity, profile?, work_experiences?, run_id?): ClaudeResult[str]`
-- `async stream_to_client(command_path, payload, opportunity_id?): AsyncIterator[StreamEvent]`
+- `async inbox_preflight(query): ClaudeResult[dict]` — 300s timeout
+- `async scan_inbox(query, page_token?, max_results?): ClaudeResult[dict]` — 300s timeout
+- `async extract_opportunities(email_content): ClaudeResult[list[dict]]` — 120s timeout
+- `async source_opportunity(opportunity, profile?, work_experiences?, run_id?): ClaudeResult[dict]` — 180s timeout
+- `async parse_work_experience_from_resume(resume_text, run_id?): ClaudeResult[dict]` — 120s timeout
+- `async generate_markdown_attachment(attachment_type, opportunity, profile?, work_experiences?, run_id?): ClaudeResult[str]` — 180s timeout
+- `async stream_to_client(command_path, payload, opportunity_id?): AsyncIterator[StreamEvent]` — 600s timeout
 - `async cancel(run_id): None`
 
 All named methods (`scan_inbox`, `extract_opportunities`, `source_opportunity`, `parse_work_experience_from_resume`, `generate_markdown_attachment`) delegate to `_run_stream()`: they consume the full event stream, concatenate `text` events into a single assistant string, read the final `done` event for cost/duration/model/run_id, parse the assistant string per the method's expected output type, and return `ClaudeResult`. They do not expose events to the caller.
@@ -864,6 +871,7 @@ All named methods (`scan_inbox`, `extract_opportunities`, `source_opportunity`, 
 
 Resolved by `_run_stream()` from the command file name:
 
+- `inbox-preflight.md` — `mcp__gmail__*` (Gmail MCP tools only)
 - `scan-inbox.md` — `mcp__gmail__*` (Gmail MCP tools only)
 - `extract-opportunity-from-email.md` — none
 - `source-opportunity.md` — `WebFetch`
@@ -1718,9 +1726,15 @@ Generate cover letter (Job-specific):
 Scan inbox:
 
 - User opens Inbox page and clicks the scan button.
-- System calls `POST /inbox/scan`; Claude scans Gmail using MCP tools and returns matching emails.
-- System deduplicates by `external_id`, stores new `InboxEmail` records, and creates `EmailOpportunity` stubs (`status: pending`) for each detected opportunity.
-- Inbox page shows newly surfaced emails; attention dot appears on emails and sidebar until sorted.
+- System calls `POST /inbox/scan`; returns `run_id` immediately; sets `AgentRun.meta = { current: 0, total: 0, preparing: true }`; scan runs in the background until all emails are processed.
+- Preflight: Claude paginates Gmail with `max_results=500` until all pages are exhausted to get an accurate total count. On completion, sets `AgentRun.meta.preparing = false` and `total = N`.
+- Query uses `after:{last_scanned_at}` if a prior scan completed, otherwise `after:{today - scan_days}`.
+- UI shows "Preparing scan… Xs" while `preparing` is true, then "Scanning {current}/{total} emails for Xs…" once preflight completes.
+- System scans in batches of `scan_batch_size`, paginating via Gmail `pageToken`, until no more results. After each batch: deduplicates by `external_id`, stores new `InboxEmail` records, creates `EmailOpportunity` stubs (`status: pending`), and updates `AgentRun.meta.current`. Before each batch, checks run status — exits immediately if cancelled.
+- On completion, scan run is marked `completed`; on any exception, marked `failed`. `last_scanned_at` is derived from the most recent completed scan run's `completed_at`.
+- Each batch is a separate Claude invocation; the scan-level `AgentRun` is managed directly by the server, not delegated to the Claude SDK.
+- Scan parameters are configured in `config.yml` under `inbox`: `scan_days`, `scan_batch_size`, `scan_keywords`.
+- Inbox page shows newly surfaced emails; attention dot appears on emails and sidebar until triaged.
 
 Triage email opportunities:
 

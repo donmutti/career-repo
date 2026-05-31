@@ -1,6 +1,7 @@
 """Agent Run DAO."""
 
-from typing import List, Optional
+import json
+from typing import Any, Dict, List, Optional
 
 from api.models.entities import AgentRun
 from ..base import BaseEntityDAO
@@ -72,12 +73,21 @@ class AgentRunDAO(BaseEntityDAO[AgentRun]):
         )
         self._save()
 
+    def set_meta(self, run_id: str, meta: Dict[str, Any]) -> None:
+        """Update the meta field for a run."""
+        self._execute(
+            "update agent_run set meta = ? where id = ?",
+            (json.dumps(meta), run_id),
+        )
+        self._save()
+
     def delete(self, run_id: str) -> None:
         """Hard-delete an agent run record."""
         self._execute("delete from agent_run where id = ?", (run_id,))
         self._save()
 
     def _from_dict(self, row: dict) -> AgentRun:
+        raw_meta = row.get("meta")
         return AgentRun(
             id=row["id"],
             created_at=row["created_at"],
@@ -86,4 +96,5 @@ class AgentRunDAO(BaseEntityDAO[AgentRun]):
             opportunity_id=row.get("opportunity_id"),
             output=row.get("output"),
             completed_at=row.get("completed_at"),
+            meta=json.loads(raw_meta) if raw_meta else None,
         )

@@ -7,14 +7,13 @@ from fastapi import APIRouter, HTTPException
 
 from ...db import InboxEmailDAO, OpportunityDAO, AgentRunDAO
 from ...models import InboxEmail, Opportunity, OpportunityVersion, OpportunityStatus, OpportunityType
-from ...services.ai import ClaudeService, ClaudeError
+from ...services.ai import ClaudeError, claude
 
 router = APIRouter(prefix="/inbox", tags=["inbox"])
 
 email_dao = InboxEmailDAO()
 opp_dao = OpportunityDAO()
 agent_run_dao = AgentRunDAO()
-claude = ClaudeService(agent_run_dao)
 
 
 @router.get("/{email_id}", response_model=InboxEmail)

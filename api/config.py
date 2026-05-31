@@ -47,3 +47,15 @@ def get_resumes_path() -> str:
 
 def get_images_path() -> str:
     return _load().get("db", {}).get("images_path", "./db/images")
+
+
+def get_inbox_scan_days() -> int:
+    return int(_load().get("inbox", {}).get("scan_days", 30))
+
+
+def get_inbox_scan_batch_size() -> int:
+    return int(_load().get("inbox", {}).get("scan_batch_size", 10))
+
+
+def get_inbox_scan_keywords() -> list[str]:
+    return _load().get("inbox", {}).get("scan_keywords", [])

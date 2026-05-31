@@ -8,14 +8,13 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from ...db import AgentRunDAO
-from ...services.ai import ClaudeService, ClaudeError
+from ...services.ai import ClaudeError, claude
 
 _COMMANDS_DIR = Path(__file__).parent.parent.parent / "services" / "ai" / "commands"
 
 router = APIRouter(prefix="/agent-runs", tags=["agent-runs"])
 
 agent_run_dao = AgentRunDAO()
-claude = ClaudeService(agent_run_dao)
 
 
 class CreateAgentRunRequestDto(BaseModel):

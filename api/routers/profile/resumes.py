@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse
 from ...config import ROOT, get_resumes_path
 from ...db import ProfileDAO, ResumeDAO, WorkExperienceDAO, AgentRunDAO
 from ...models.types import Resume
-from ...services.ai import ClaudeService, ClaudeError
+from ...services.ai import ClaudeError, claude
 
 router = APIRouter(prefix="/profile/resumes", tags=["profile"])
 
@@ -18,7 +18,6 @@ profile_dao = ProfileDAO()
 resume_dao = ResumeDAO()
 we_dao = WorkExperienceDAO()
 agent_run_dao = AgentRunDAO()
-claude = ClaudeService(agent_run_dao)
 
 RESUMES_DIR = ROOT / get_resumes_path()
 MAX_RESUME_SIZE = 20 * 1024 * 1024  # 20MB

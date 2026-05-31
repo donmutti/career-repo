@@ -17,7 +17,7 @@ from ...models.entities.opportunity.meta.comment import CommentVersion
 from ...models.entities.opportunity.base.opportunity import (
     OpportunityVersion, OpportunityType, OpportunityStatus,
 )
-from ...services.ai import ClaudeService, ClaudeError
+from ...services.ai import ClaudeError, claude
 
 router = APIRouter(prefix="/inbox", tags=["inbox"])
 
@@ -27,7 +27,6 @@ comment_dao = CommentDAO()
 profile_dao = ProfileDAO()
 work_experience_dao = WorkExperienceDAO()
 agent_run_dao = AgentRunDAO()
-claude = ClaudeService(agent_run_dao)
 
 
 @router.get("/{email_id}/opportunities", response_model=list[EmailOpportunity])

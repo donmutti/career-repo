@@ -10,6 +10,7 @@ interface AgentRun {
   id: string
   status: string
   created_at: string
+  meta?: { current: number; total: number; preparing: boolean } | null
 }
 
 export function useInboxScan(activeWindow: string) {
@@ -39,6 +40,7 @@ export function useInboxScan(activeWindow: string) {
   const run = runData as AgentRun | undefined
   const runStatus = run?.status
   const runCreatedAt = run?.created_at
+  const progress = run?.meta ?? null
 
   useEffect(() => {
     if (runStatus && TERMINAL_STATUSES.includes(runStatus)) {
@@ -91,6 +93,7 @@ export function useInboxScan(activeWindow: string) {
   return {
     scanning,
     elapsed,
+    progress,
     start: startMutation.mutate,
     cancel: cancelMutation.mutate,
   }

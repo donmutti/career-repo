@@ -3,7 +3,7 @@
 from fastapi import APIRouter, HTTPException
 
 from ...db import AgentRunDAO, OpportunityDAO
-from .stream_agent_run import claude
+from ...services.ai import claude
 
 router = APIRouter(prefix="/agent-runs", tags=["agent-runs"])
 

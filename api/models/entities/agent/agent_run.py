@@ -1,7 +1,7 @@
 """Agent run entity."""
 
 from datetime import datetime
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from ..base import BaseEntity
 
@@ -14,3 +14,4 @@ class AgentRun(BaseEntity):
     opportunity_id: Optional[str] = None
     output: Optional[str] = None
     completed_at: Optional[datetime] = None
+    meta: Optional[Dict[str, Any]] = None

@@ -14,6 +14,7 @@ from api.models.entities import Opportunity, Profile
 _COMMANDS_DIR = Path(__file__).parent / "commands"
 
 _TOOL_ALLOWLIST: Dict[str, List[str]] = {
+    "inbox-preflight.md": ["mcp__gmail__*"],
     "scan-inbox.md": ["mcp__gmail__*"],
     "extract-opportunity-from-email.md": [],
     "source-opportunity.md": ["WebFetch"],
@@ -56,14 +57,18 @@ class ClaudeService:
     # Public named methods
     # ------------------------------------------------------------------
 
-    async def scan_inbox(self, max_results: int = 50, existing_run_id: Optional[str] = None) -> ClaudeResult:
+    async def inbox_preflight(self, query: str) -> ClaudeResult:
+        command_path = _COMMANDS_DIR / "inbox-preflight.md"
+        return await self._collect(command_path, {"query": query}, timeout=300.0)
+
+    async def scan_inbox(self, query: str, page_token: Optional[str] = None, max_results: int = 10) -> ClaudeResult:
         command_path = _COMMANDS_DIR / "scan-inbox.md"
-        payload: Dict[str, Any] = {"max_results": max_results}
-        return await self._collect(command_path, payload, existing_run_id=existing_run_id)
+        payload: Dict[str, Any] = {"query": query, "page_token": page_token, "max_results": max_results}
+        return await self._collect(command_path, payload, timeout=300.0)
 
     async def extract_opportunities(self, email_content: str) -> ClaudeResult:
         command_path = _COMMANDS_DIR / "extract-opportunity-from-email.md"
-        return await self._collect(command_path, email_content)
+        return await self._collect(command_path, email_content, timeout=120.0)
 
     async def source_opportunity(self, opportunity: Opportunity, profile: Optional[Profile] = None, work_experiences: Optional[List] = None, run_id: Optional[str] = None) -> ClaudeResult:
         command_path = _COMMANDS_DIR / "source-opportunity.md"
@@ -72,11 +77,11 @@ class ClaudeService:
             "profile": profile.model_dump(mode="json") if profile else None,
             "work_experiences": [we.model_dump(mode="json") for we in work_experiences] if work_experiences else [],
         }
-        return await self._collect(command_path, payload, existing_run_id=run_id)
+        return await self._collect(command_path, payload, existing_run_id=run_id, timeout=180.0)
 
     async def parse_work_experience_from_resume(self, resume_text: str, run_id: Optional[str] = None) -> ClaudeResult:
         command_path = _COMMANDS_DIR / "parse-work-experience-from-resume.md"
-        return await self._collect(command_path, resume_text, existing_run_id=run_id)
+        return await self._collect(command_path, resume_text, existing_run_id=run_id, timeout=120.0)
 
     async def generate_markdown_attachment(
         self,
@@ -93,7 +98,7 @@ class ClaudeService:
             "profile": profile.model_dump(mode="json") if profile else None,
             "work_experiences": [we.model_dump(mode="json") for we in work_experiences] if work_experiences else [],
         }
-        return await self._collect(command_path, payload, raw_text=True, existing_run_id=run_id)
+        return await self._collect(command_path, payload, raw_text=True, existing_run_id=run_id, timeout=180.0)
 
     async def stream_to_client(
         self,
@@ -101,7 +106,7 @@ class ClaudeService:
         payload: Any,
         opportunity_id: Optional[str] = None,
     ) -> AsyncGenerator[StreamEvent, None]:
-        async for event in self._run_stream(command_path, payload, opportunity_id):
+        async for event in self._run_stream(command_path, payload, opportunity_id, timeout=600.0):
             yield event
 
     async def cancel(self, run_id: str) -> None:
@@ -121,12 +126,13 @@ class ClaudeService:
         opportunity_id: Optional[str] = None,
         raw_text: bool = False,
         existing_run_id: Optional[str] = None,
+        timeout: float = 300.0,
     ) -> ClaudeResult:
         """Consume the full event stream and return a ClaudeResult."""
         text_chunks: List[str] = []
         done_data: Dict[str, Any] = {}
 
-        async for event in self._run_stream(command_path, payload, opportunity_id, existing_run_id=existing_run_id):
+        async for event in self._run_stream(command_path, payload, opportunity_id, existing_run_id=existing_run_id, timeout=timeout):
             if event.type == "text":
                 text_chunks.append(str(event.data))
             elif event.type == "done":
@@ -165,6 +171,7 @@ class ClaudeService:
         payload: Any,
         opportunity_id: Optional[str] = None,
         existing_run_id: Optional[str] = None,
+        timeout: float = 300.0,
     ) -> AsyncGenerator[StreamEvent, None]:
         import claude_agent_sdk
 
@@ -233,7 +240,7 @@ class ClaudeService:
 
         try:
             while True:
-                event = await asyncio.wait_for(queue.get(), timeout=180.0)
+                event = await asyncio.wait_for(queue.get(), timeout=timeout)
                 if event is None:
                     break
                 yield event
