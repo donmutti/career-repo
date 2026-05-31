@@ -265,6 +265,7 @@ EmailOpportunity (immutable entity) — a potential opportunity identified by Cl
 - title: string
 - type: string — opportunity type hint
 - url: string (optional)
+- organization_name: string (optional) — hiring organization extracted by Claude during scan
 - status: string — `pending` | `extracted` | `skipped`
 - opportunity_id: UUID (optional) — set after extraction
 
@@ -468,6 +469,7 @@ Versioned entities: two-table pattern — `<entity>` holds identity table (`id`,
 - title TEXT not null
 - type TEXT not null default 'job'
 - url TEXT
+- organization_name TEXT
 - status TEXT not null default 'pending'
 - opportunity_id TEXT (references `opportunity`, on delete set null)
 
@@ -657,6 +659,7 @@ EmailOpportunity (BaseEntity):
 - title: str
 - type: str
 - url: str (optional)
+- organization_name: str (optional)
 - status: str — `pending` | `extracted` | `skipped`
 - opportunity_id: str (optional)
 
@@ -777,7 +780,7 @@ InboxEmailDAO (BaseEntityDAO[InboxEmail]):
 
 EmailOpportunityDAO (BaseEntityDAO[EmailOpportunity]):
 
-- `create(inbox_email_id, title, type, url?): EmailOpportunity`
+- `create(inbox_email_id, title, type, url?, organization_name?): EmailOpportunity`
 - `get(eo_id): EmailOpportunity | None`
 - `list_by_email(inbox_email_id): list[EmailOpportunity]`
 - `set_status(eo_id, status, opportunity_id?): EmailOpportunity`
@@ -1730,7 +1733,7 @@ Scan inbox:
 - Preflight: Claude paginates Gmail with `max_results=500` until all pages are exhausted to get an accurate total count. On completion, sets `AgentRun.meta.preparing = false` and `total = N`.
 - Query uses `after:{last_scanned_at}` if a prior scan completed, otherwise `after:{today - scan_days}`.
 - UI shows "Preparing scan… Xs" while `preparing` is true, then "Scanning {current}/{total} emails for Xs…" once preflight completes.
-- System scans in batches of `scan_batch_size`, paginating via Gmail `pageToken`, until no more results. After each batch: deduplicates by `external_id`, stores new `InboxEmail` records, creates `EmailOpportunity` stubs (`status: pending`), and updates `AgentRun.meta.current`. Before each batch, checks run status — exits immediately if cancelled.
+- System scans in batches of `scan_batch_size`, paginating via Gmail `pageToken`, until no more results. After each batch: deduplicates by `external_id`, stores new `InboxEmail` records, creates `EmailOpportunity` stubs (`status: pending`, `organization_name` populated from scan output), and updates `AgentRun.meta.current`. Before each batch, checks run status — exits immediately if cancelled.
 - On completion, scan run is marked `completed`; on any exception, marked `failed`. `last_scanned_at` is derived from the most recent completed scan run's `completed_at`.
 - Each batch is a separate Claude invocation; the scan-level `AgentRun` is managed directly by the server, not delegated to the Claude SDK.
 - Scan parameters are configured in `config.yml` under `inbox`: `scan_days`, `scan_batch_size`, `scan_keywords`.

@@ -55,6 +55,7 @@ async def patch_email_opportunity(eo_id: str, body: PatchEmailOpportunityDto):
             status=OpportunityStatus.OPENED,
             title=eo.title,
             opened_on=date.today(),
+            organization_name=eo.organization_name,
         )
         opportunity_id = opportunity_dao.create(eo.url or None, opp_type, version)
         comment_dao.create(opportunity_id, CommentVersion(body=f"Created from email /inbox/{eo.inbox_email_id}"))

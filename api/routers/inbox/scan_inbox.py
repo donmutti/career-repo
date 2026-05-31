@@ -133,8 +133,9 @@ async def scan_inbox():
                         title = opp.get("title", "").strip()
                         opp_type = opp.get("type", "job")
                         url = opp.get("url") or None
+                        organization_name = opp.get("organization_name") or None
                         if title:
-                            email_opp_dao.create(created_email.id, title, opp_type, url)
+                            email_opp_dao.create(created_email.id, title, opp_type, url, organization_name)
 
                 if not next_page_token:
                     break

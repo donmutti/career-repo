@@ -27,7 +27,8 @@ Return a JSON object with the following shape:
         {
           "title": "string (concise opportunity title, e.g. 'Senior Engineer at Acme')",
           "type": "job",
-          "url": "string | null (direct link to the job posting, if present in the email)"
+          "url": "string | null (direct link to the job posting, if present in the email)",
+          "organization_name": "string | null (name of the hiring organization, e.g. 'Acme')"
         }
       ]
     }

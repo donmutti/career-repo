@@ -12,5 +12,6 @@ class EmailOpportunity(BaseEntity):
     title: str
     type: str
     url: Optional[str] = None
+    organization_name: Optional[str] = None
     status: str  # pending | extracted | skipped
     opportunity_id: Optional[str] = None
