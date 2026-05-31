@@ -104,12 +104,14 @@ export function InboxEmailView({emailId}: InboxEmailViewProps) {
 
         {/* Title header */}
         <div className="flex flex-col gap-2 px-6 pb-4 border-b border-frame-lighter pr-6">
-          <h2 className="one-liner text-xl font-semibold text-label-darkest leading-snug">{email.subject}</h2>
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="text-xl font-semibold text-label-darkest leading-snug">{email.subject}</h2>
+            <a href={`https://mail.google.com/mail/u/0/#inbox/${email.external_id}`} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-intent-info shrink-0 mt-1">View in Gmail <ExternalLink size={12}/></a>
+          </div>
           <div className="grid gap-x-3 gap-y-1 text-label-medium py-2" style={{gridTemplateColumns: 'auto 1fr'}}>
             <span className="one-liner text-label-darker font-medium">From:</span><span className="truncate">{email.from_address}</span>
             <span className="one-liner text-label-darker font-medium">To:</span><span className="truncate">{email.to_address}</span>
             <span className="one-liner text-label-darker font-medium">Date:</span><DateLabel date={email.received_at}/>
-            <span/><a href={`https://mail.google.com/mail/u/0/#inbox/${email.external_id}`} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-intent-info text-sm">View in Gmail <ExternalLink size={12}/></a>
           </div>
         </div>
 
