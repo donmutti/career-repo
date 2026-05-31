@@ -44,13 +44,16 @@ Use **only** these exact string values for enum fields:
 
 ## Avatar URL
 
-- Include `avatar_url`: the URL of the company's favicon or logo. Try `<origin>/favicon.ico` first (e.g. `https://acme.com/favicon.ico`). If the page references a higher-quality favicon (SVG or PNG) in its `<link rel="icon">` tags, use that instead. Use the absolute URL. If you cannot determine one, omit the field.
+- Include `avatar_url`: the favicon of the hiring organization. If `avatar_url` is already set in the input record, keep it as-is. Otherwise try in order:
+  1. Google's favicon service using the hiring organization's primary domain: `https://www.google.com/s2/favicons?domain=<org-primary-domain>&sz=32` (e.g. for Revolut: `https://www.google.com/s2/favicons?domain=revolut.com&sz=32`). No HTTP check needed — always resolves.
+  2. If an opportunity URL is available and step 1 is not possible (org domain unknown): fetch the page, find `<link rel="icon">` tags in `<head>`, HTTP HEAD each href (prefer larger sizes, absolute URLs), use the first that returns HTTP 200. If none, try `<origin>/favicon.ico` and `<origin>/favicon.svg`.
+  Only omit the field if you cannot determine the organization's name or domain and no opportunity URL is available.
 
 ## Final message format
 
 Your last message must be exactly this — the JSON object, nothing before, nothing after:
 
-{"title":"Senior Software Engineer","organization_name":"Acme Corp","description":"Lead engineering role...","location":"San Francisco, CA","score":8,"score_explanation":"{\"pros\":[\"Strong match for your backend engineering background\",\"Core stack is Go and Kubernetes — both areas of deep expertise\",\"Hybrid work model fits your preferences\",\"Compensation at $180–220k is within your target range\",\"Developer tooling domain aligns with your stated interests\"],\"cons\":[\"Requires 7+ years but role may skew more managerial than hands-on\",\"San Francisco location may require occasional travel\",\"No mention of equity structure\"]}","status":"opened","job_contract_type":"permanent","job_work_mode":"hybrid","avatar_url":"https://acme.com/favicon.ico"}
+{"title":"Senior Software Engineer","organization_name":"Acme Corp","description":"Lead engineering role...","location":"San Francisco, CA","score":8,"score_explanation":"{\"pros\":[\"Strong match for your backend engineering background\",\"Core stack is Go and Kubernetes — both areas of deep expertise\",\"Hybrid work model fits your preferences\",\"Compensation at $180–220k is within your target range\",\"Developer tooling domain aligns with your stated interests\"],\"cons\":[\"Requires 7+ years but role may skew more managerial than hands-on\",\"San Francisco location may require occasional travel\",\"No mention of equity structure\"]}","status":"opened","job_contract_type":"permanent","job_work_mode":"hybrid","avatar_url":"https://www.google.com/s2/favicons?domain=acme.com&sz=32"}
 
 ## Input
 

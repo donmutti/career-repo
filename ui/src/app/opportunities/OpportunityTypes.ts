@@ -52,6 +52,7 @@ export interface ApiOpportunity {
   id: string
   type: string
   url: string
+  avatar_url?: string
   created_at: string
   sourcing_started_at?: string | null
   sourcing_completed_at?: string | null

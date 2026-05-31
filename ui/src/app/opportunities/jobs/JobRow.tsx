@@ -1,3 +1,4 @@
+import {useState} from 'react'
 import {useNavigate} from 'react-router'
 import {ScoreBadge} from '@/shared/controls/buttons/ScoreBadge'
 import {Spinner} from '@/shared/controls/Spinner'
@@ -22,17 +23,15 @@ interface JobRowProps {
 }
 
 function CompanyAvatar({url, avatarUrl}: {url: string; avatarUrl?: string}) {
-  if (avatarUrl) {
-    return (
-      <img
-        src={avatarUrl}
-        alt=""
-        className="w-5 h-5 rounded-sm object-contain shrink-0"
-        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
-      />
-    )
-  }
-  return <Building2 size={16} className="shrink-0 text-label-light"/>
+  const [imgFailed, setImgFailed] = useState(false)
+  return (
+    <div className="w-5 h-5 shrink-0 flex items-center justify-center">
+      {avatarUrl && !imgFailed
+        ? <img src={avatarUrl} alt="" className="w-5 h-5 rounded-sm object-contain" onError={() => setImgFailed(true)}/>
+        : <Building2 size={16} className="text-label-light"/>
+      }
+    </div>
+  )
 }
 
 export function JobRow({opportunity: o, navigateTo, selected, isChanging}: JobRowProps) {
