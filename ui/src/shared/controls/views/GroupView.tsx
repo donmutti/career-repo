@@ -57,7 +57,7 @@ export function GroupView({label, count, actions, status, collapsible, children,
           {count != null && <span className="text-sm font-normal">{formatCount(count)}</span>}
         </div>
         <span className="ml-auto"/>
-        {status && <span className="flex items-center gap-1.5 text-sm font-normal text-label-medium mr-1">{status}</span>}
+        {status && <span className="flex items-center gap-1.5 text-sm font-normal text-label-light mr-5">{status}</span>}
         {actions && (
           <div className="flex items-center gap-x-1 mr-1.5">
             {actions.map((action) => (

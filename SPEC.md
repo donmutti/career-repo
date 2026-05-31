@@ -1074,9 +1074,10 @@ DropdownButton — composable dropdown menu with custom trigger:
 
 DropdownItem:
 
-- label: string — display text
+- label?: string — display text
 - divider?: boolean — renders a horizontal separator; all other fields ignored when true
-- onClick: () => void — click handler; ignored if `divider` is true
+- header?: boolean — renders a non-interactive uppercase section label; all other fields ignored when true
+- onClick?: () => void — click handler; ignored if `divider` or `header` is true
 - icon?: ReactElement — left-aligned icon; space only reserved when at least one item has an icon
 - checked?: boolean — right-aligned checkmark; space only reserved when at least one item has a checkmark
 - disabled?: boolean — non-interactive and styled as disabled
@@ -1205,6 +1206,12 @@ GroupedListView — list of named sections each rendered via GroupView:
 - groups: Group<T>[]
 - row: (item: T) => ReactNode
 - hideEmptyGroups?: boolean
+- collapseEmptyGroups?: boolean — empty groups start collapsed but remain visible
+- showGroupDividers?: boolean
+- groupBy?: (item: T) => string — when provided, overrides `groups` structure; all items from all groups are re-bucketed by the return value
+- groupByKeys?: string[] — predefined group keys to always include (even if empty) when `groupBy` is set
+- groupSortKey?: (groupKey: string) => number — sort order for dynamic groups; lower = higher in list; defaults to alphabetical
+- groupLabelDetail?: (groupKey: string) => ReactNode — rendered right-aligned in the group header via `GroupView.status`
 
 Group<T>:
 
@@ -1591,9 +1598,22 @@ Source lives in `ui/src/app/opportunities/`.
 - Filter pane — `PaneHeader` "Opportunities"; `ListView` of `OpportunityTypeRow` items (one per type: Jobs, Projects, Education, Networking, Learning) with count; clicking navigates to the type's route
 - `<Outlet/>` — renders the active type list page
 
+JobGroupByMode: `'status'` | `'organization_name'` | `'score'` — controls how the Jobs list is grouped; persisted in `localStorage` under `pane.jobs.groupBy`; default is `'status'`
+
+JobGroupByOption — per-mode grouping config:
+- label: string — menu item label
+- groupBy?: (item) => string — bucket function
+- groupByKeys?: string[] — predefined keys always present
+- groupSortKey?: (key) => number — sort order; lower = higher
+- groupLabelDetail?: (key) => ReactNode — right-aligned detail in group header
+- hideEmptyGroups: boolean
+- collapseEmptyGroups?: boolean
+
+Score grade buckets (used by `'score'` mode): Excellent (9.0–10.0), Good (7.0–8.9), Average (5.0–6.9), Below average (3.0–4.9), Poor (0.0–2.9), Unscored — always shown, empty buckets start collapsed; range shown right-aligned in group header.
+
 Type list pages: `JobListPage`, `ProjectListPage`, `EducationListPage`, `NetworkingListPage`, `LearningListPage` — each follows the same pattern:
 
-- List pane — `PaneHeader` with type label and "+" add button; `GroupedListView` grouped by status: New (opened), In progress (started), Completed (completed), Archived (closed, collapsed by default)
+- List pane — `PaneHeader` with type label, "+" add button, and "⋮" More dropdown (Jobs only: "GROUP BY" header + Status / Company / Score, mutually exclusive with checkmarks); `GroupedListView` grouped per `JobGroupByMode`; default (status): New (opened), In progress (started), Completed (completed), Archived (closed, collapsed by default)
   - Each row: `JobRow` (or equivalent) — avatar, title, organization, score badge; clicking navigates to `…/:id`
   - "+" opens `ValueDialog` to enter a URL; on submit calls `POST /opportunities` then auto-sources; if 409 (duplicate), navigates to existing
 - Detail pane — `JobView` (or equivalent) when `:id` selected, otherwise `EmptyState`
@@ -1632,7 +1652,7 @@ Source lives in `ui/src/app/inbox/`.
 
 `InboxEmailView` — detail view for an email:
 
-- Header: subject, from/to, received date (`DateLabel`), "Extract" button
+- Header: subject (left) + "View in Gmail" link (right); from/to, received date (`DateLabel`)
 - Body: `ShowMoreView` wrapping `TextEdit` (read-only)
 - Extracted opportunities: grouped by type (Job, Project, etc.); each `InboxEmailOpportunityRow` shows title, URL, status (`pending` / `extracted` / `skipped`) with accept/skip actions
 

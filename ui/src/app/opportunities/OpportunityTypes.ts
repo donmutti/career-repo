@@ -1,3 +1,4 @@
+import {ReactNode} from 'react'
 import {BookOpen, BriefcaseBusiness, Folder, GraduationCap, LucideIcon, Users} from 'lucide-react'
 
 export interface OpportunityVersion {
@@ -58,6 +59,7 @@ export interface ApiOpportunity {
     title?: string
     status: string
     score?: number
+    organization_name?: string
   }
 }
 
@@ -81,6 +83,72 @@ export const STATUS_GROUPS = [
   {key: 'completed', label: STATUS_LABELS.completed},
   {key: 'closed', label: STATUS_LABELS.closed},
 ]
+
+export type JobGroupByMode = 'status' | 'organization_name' | 'score'
+
+export interface JobGroupByOption {
+  label: string
+  groupBy?: (item: ApiOpportunity) => string
+  groupByKeys?: string[]
+  groupSortKey?: (key: string) => number
+  groupLabelDetail?: (key: string) => ReactNode
+  hideEmptyGroups: boolean
+  collapseEmptyGroups?: boolean
+}
+
+export function getScoreGrade(score: number | null | undefined): string {
+  if (score == null) return 'Unscored'
+  if (score >= 9.0) return 'Excellent'
+  if (score >= 7.0) return 'Good'
+  if (score >= 5.0) return 'Average'
+  if (score >= 3.0) return 'Below average'
+  return 'Poor'
+}
+
+export function getScoreGradeRange(grade: string): ReactNode {
+  return SCORE_GRADE_RANGES[grade]
+}
+
+const SCORE_GRADE_RANGES: Record<string, string> = {
+  'Excellent': '9.0 – 10.0',
+  'Good': '7.0 – 8.9',
+  'Average': '5.0 – 6.9',
+  'Below average': '3.0 – 4.9',
+  'Poor': '0.0 – 2.9',
+}
+
+const SCORE_GRADE_ORDER: Record<string, number> = {
+  'Excellent': 0,
+  'Good': 1,
+  'Average': 2,
+  'Below average': 3,
+  'Poor': 4,
+  'Unscored': 5,
+}
+
+export const SCORE_GRADE_KEYS = Object.keys(SCORE_GRADE_ORDER)
+
+
+export const JOB_GROUP_BY_OPTIONS: Record<JobGroupByMode, JobGroupByOption> = {
+  status: {
+    label: 'Status',
+    hideEmptyGroups: true,
+  },
+  organization_name: {
+    label: 'Company',
+    groupBy: (item) => item.active_version.organization_name ?? '(Unknown)',
+    hideEmptyGroups: true,
+  },
+  score: {
+    label: 'Score',
+    groupBy: (item) => getScoreGrade(item.active_version.score),
+    groupByKeys: SCORE_GRADE_KEYS,
+    groupSortKey: (grade) => SCORE_GRADE_ORDER[grade] ?? 99,
+    groupLabelDetail: getScoreGradeRange,
+    hideEmptyGroups: false,
+    collapseEmptyGroups: true,
+  },
+}
 
 export const OPP_TYPES = ['job', 'project', 'education', 'networking', 'learning']
 

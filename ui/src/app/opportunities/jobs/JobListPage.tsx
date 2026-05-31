@@ -1,14 +1,15 @@
 import {useState} from 'react'
 import {useNavigate, useParams} from 'react-router'
-import {Briefcase, LayoutList, Plus} from 'lucide-react'
+import {Briefcase, LayoutList, MoreVertical, Plus} from 'lucide-react'
 import {LocalStorageUtils} from '@/shared/utils/LocalStorageUtils'
-import {ApiOpportunity, STATUS_LABELS} from '@/app/opportunities/OpportunityTypes'
+import {ApiOpportunity, JOB_GROUP_BY_OPTIONS, JobGroupByMode, STATUS_LABELS} from '@/app/opportunities/OpportunityTypes'
 import {Spinner} from '@/shared/controls/Spinner'
 import {Pane, PaneBody, PaneHeader, PaneResizeHandle} from '@/shared/controls/panes/Panes'
 import {GroupedListView} from '@/shared/controls/views/GroupedListView'
 import {EmptyState} from '@/shared/controls/views/EmptyState'
 import {ValueDialog} from '@/shared/controls/dialogs/ValueDialog'
 import {IconButton} from '@/shared/controls/buttons/IconButton'
+import {DropdownButton} from '@/shared/controls/buttons/DropdownButton'
 import {JobRow} from './JobRow'
 import {JobView} from './JobView'
 import {AddJobBar} from './AddJobBar'
@@ -17,12 +18,14 @@ import {ApiError, opportunities as opApi} from '@/services/client'
 import {toastInfo} from '@/shared/utils/ToastUtils'
 
 
+
 export default function JobListPage() {
   const {id: selectedId} = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [newOppOpen, setNewOppOpen] = useState(false)
   const [newUrl, setNewUrl] = useState('')
   const [listWidth, setListWidth] = useState(() => LocalStorageUtils.get('pane.opportunities.list', 550))
+  const [groupByMode, setGroupByMode] = useState<JobGroupByMode>(() => LocalStorageUtils.get('pane.jobs.groupBy', 'status'))
 
   const {opportunities, isLoading, createMutation} = useOpportunities()
 
@@ -73,7 +76,23 @@ export default function JobListPage() {
       <div className="flex flex-col overflow-hidden shrink-0 min-w-[240px]" style={{width: listWidth}}>
         <PaneHeader
           title="Jobs"
-          actions={<IconButton icon={Plus} label="Add job opportunity" onClick={() => setNewOppOpen(true)}/>}
+          actions={
+            <div className="flex items-center gap-1">
+              <IconButton icon={Plus} label="Add job opportunity" onClick={() => setNewOppOpen(true)}/>
+              <DropdownButton
+                trigger={<IconButton icon={MoreVertical} label="More options"/>}
+                items={[
+                  {label: 'Group by', header: true},
+                  ...(Object.entries(JOB_GROUP_BY_OPTIONS) as [JobGroupByMode, typeof JOB_GROUP_BY_OPTIONS[JobGroupByMode]][]).map(([mode, opt]) => ({
+                    label: opt.label,
+                    onClick: () => { setGroupByMode(mode); LocalStorageUtils.set('pane.jobs.groupBy', mode) },
+                    checked: groupByMode === mode,
+                  })),
+                ]}
+                align="end"
+              />
+            </div>
+          }
         />
         <AddJobBar/>
         <PaneBody>
@@ -92,8 +111,8 @@ export default function JobListPage() {
             <>
               <GroupedListView
                 groups={groups}
-                hideEmptyGroups
                 showGroupDividers
+                {...JOB_GROUP_BY_OPTIONS[groupByMode]}
                 row={(item) => (
                   <JobRow
                     key={item.id}

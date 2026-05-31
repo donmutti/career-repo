@@ -3,12 +3,13 @@ import {Check} from 'lucide-react'
 import {ReactElement, ReactNode} from 'react'
 
 export interface DropdownItem {
-  label: string
-  onClick: () => void
+  label?: string
+  onClick?: () => void
   icon?: ReactElement
   checked?: boolean
   disabled?: boolean
   divider?: boolean
+  header?: boolean
   danger?: boolean
 }
 
@@ -40,6 +41,10 @@ export function DropdownButton({items, trigger, align = 'start', className = 'mi
           {items.map((item, i) => (
             item.divider ? (
               <DropdownMenu.Separator key={i} className="h-px bg-frame-lightest my-1"/>
+            ) : item.header ? (
+              <DropdownMenu.Label key={i} className="px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-label-medium select-none">
+                {item.label}
+              </DropdownMenu.Label>
             ) : (
               <DropdownMenu.Item
                 key={i}
