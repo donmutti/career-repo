@@ -14,6 +14,16 @@ Built with FastAPI, SQLite, and Claude Code CLI.
 
 ---
 
+## Demo
+
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/donmutti/career-repo)
+
+Click the badge to launch a fully running Career Repo instance in your browser – no local setup required. The API and UI start automatically.
+
+When done, delete the codespace at [github.com/codespaces](https://github.com/codespaces) to avoid using your free monthly quota.
+
+---
+
 ## Single-User Mode
 
 Career Repo is designed for one person running:
