@@ -18,11 +18,11 @@ Built with FastAPI, SQLite, and Claude Code CLI.
 
 Career Repo is designed for one person running:
 
-- **No server storage** — all data lives in a local SQLite database. To save your data remotely, commit `db/data.json` to your remote repo.
-- **No multi-device access** — the app runs on one machine at a time. To move between devices, commit `db/data.json`, pull it on the other machine, and restart the app.
-- **No access control** — no login or sessions. Data is accessible to anyone with access to your machine.
-- **One Gmail account** — the Gmail MCP plugin authenticates to a single Google account. Emails at other addresses are not scanned unless forwarded to the connected account.
-- **One Claude Code account** — AI operations (sourcing, cover letter generation) run through your local Claude Code CLI. Concurrent use from multiple sessions is not supported.
+- **No server storage** – all data lives in a local SQLite database. To save your data remotely, commit `db/data.json` to your remote repo.
+- **No multi-device access** – the app runs on one machine at a time. To move between devices, commit `db/data.json`, pull it on the other machine, and restart the app.
+- **No access control** – no login or sessions. Data is accessible to anyone with access to your machine.
+- **One Gmail account** – the Gmail MCP plugin authenticates to a single Google account. Emails at other addresses are not scanned unless forwarded to the connected account.
+- **One Claude Code account** – AI operations (sourcing, cover letter generation) run through your local Claude Code CLI. Concurrent use from multiple sessions is not supported.
 
 ---
 
@@ -30,19 +30,24 @@ Career Repo is designed for one person running:
 
 **Prerequisites:**
 
-- Python 3.13+
-- Node.js 20+
-- Claude Code CLI (installed and configured)
-- Git
+- [Git](https://git-scm.com/downloads) – version control, needed to clone the repo
+- [uv](https://docs.astral.sh/uv/getting-started/installation/) – Python package manager, needed to install Python dependencies
+- [Node.js 20+](https://nodejs.org) – JavaScript runtime, needed to run the UI dev server
+- [Claude Code CLI](https://code.claude.com) – local AI assistant, needed to run AI features (job scoring, cover letter generation, etc.)
 
 **Checkout:**
 
 ```bash
 git clone https://github.com/donmutti/career-repo
 cd career-repo
-python3 -m venv venv
+```
+
+**Install** (one-time, local to the repo):
+
+```bash
+uv venv venv              # creates local virtual environment in `venv/`
 source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -e .
+uv pip install -e .       # install app dependencies in editable mode
 ```
 
 **Configure:**
@@ -91,20 +96,6 @@ pkill -f "python3 api/main.py"
 
 ---
 
----
-
-## Development
-
-This project follows specification-driven development process. See [SPEC.md](SPEC.md) for complete product specification.
-
-The `.claude/skills/` directory includes the following Claude Code development skills:
-
-- `/start` — start both the API and UI dev servers in the background
-- `/stop` — stop both dev servers
-- `/restart` — stop any running servers and start fresh
-- `/run-spec` — validate the codebase against SPEC.md and fix all discrepancies (`/run-spec dryrun` for report only)
-- `/refresh-yourself` — re-read CLAUDE.md, SPEC.md, and project structure to re-orient
-
 ## Contributing
 
-Issues and PRs are always welcome!
+See [CONTRIBUTING.md](CONTRIBUTING.md).
