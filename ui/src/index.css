@@ -50,8 +50,8 @@
   --color-intent-danger-text: #ffffff;
   --color-intent-success: #22c55e;
   --color-intent-success-text: #ffffff;
-  --color-score-a: #84cc16;
-  --color-score-b: #22c55e;
+  --color-score-a: #22c55e;
+  --color-score-b: #84cc16;
   --color-score-c: #eab308;
   --color-score-d: #f97316;
   --color-score-e: #ef4444;
@@ -113,8 +113,8 @@
     --color-intent-danger-text: #0f172a;
     --color-intent-success: #4ade80;
     --color-intent-success-text: #0f172a;
-    --color-score-a: #a3e635;
-    --color-score-b: #4ade80;
+    --color-score-a: #4ade80;
+    --color-score-b: #a3e635;
     --color-score-c: #facc15;
     --color-score-d: #fb923c;
     --color-score-e: #f87171;
