@@ -1656,6 +1656,14 @@ Source lives in `ui/src/app/inbox/`.
 - Body: `ShowMoreView` wrapping `TextEdit` (read-only)
 - Extracted opportunities: grouped by type (Job, Project, etc.); each `InboxEmailOpportunityRow` shows title, URL, status (`pending` / `extracted` / `skipped`) with accept/skip actions
 
+`useInboxScan(activeWindow)` — manages the inbox scan lifecycle; used by `InboxPage`:
+
+- On mount, checks `GET /inbox/scan/active` for an already-running scan
+- Polls the active `AgentRun` every 2s until terminal status (`completed` | `failed` | `cancelled`)
+- On terminal: invalidates `inboxStatus`, `inboxCounts`, `inboxSortedCounts`, `inboxList`, `inboxActiveScan`
+- Drives an elapsed timer (seconds since `run.created_at`)
+- Returns: `scanning`, `elapsed`, `progress` (`{ current, total, preparing } | null`), `start()`, `cancel()`
+
 #### 7.9.4. Profile
 
 Source lives in `ui/src/app/profile/`.

@@ -10,7 +10,6 @@ from .opportunity import (
     CreateAttachmentRequestDto,
 )
 from .profile import CreateProfileRequestDto, UpdateProfileRequestDto
-from .timeline import TimelineWindowDto, GetTimelineResponseDto
 
 __all__ = [
     "ErrorDto",
@@ -19,5 +18,4 @@ __all__ = [
     "CreateCommentRequestDto", "UpdateCommentRequestDto",
     "CreateAttachmentRequestDto",
     "ScanInboxRequestDto", "ScanInboxResponseDto",
-    "TimelineWindowDto", "GetTimelineResponseDto",
 ]

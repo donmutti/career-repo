@@ -11,7 +11,6 @@ from .opportunity import (
 )
 from .opportunity.meta import AttachmentType, Attachment, Comment, CommentVersion
 from .profile import Profile, ProfileVersion
-from .timeline import TimeWindowCode, TimeWindow
 from ..types import Currency, WorkPermitType
 
 __all__ = [
@@ -22,12 +21,10 @@ __all__ = [
     "EducationType", "EducationLevel",
     "NetworkingType",
     "LearningType",
-    "TimeWindowCode",
     "Currency", "WorkPermitType",
     "Profile", "ProfileVersion",
     "OpportunityVersion", "Opportunity",
     "AttachmentType", "Attachment", "Comment", "CommentVersion",
-    "TimeWindow",
     "InboxEmail", "EmailOpportunity",
     "AgentRun",
 ]

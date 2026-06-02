@@ -7,7 +7,6 @@ from .dtos import (
     CreateCommentRequestDto, UpdateCommentRequestDto,
     CreateAttachmentRequestDto,
     ScanInboxRequestDto, ScanInboxResponseDto,
-    TimelineWindowDto, GetTimelineResponseDto,
 )
 from .entities import (
     BaseEntity,
@@ -24,7 +23,6 @@ from .entities import (
     AttachmentType, Attachment,
     InboxEmail,
     AgentRun,
-    TimeWindow,
     Currency, WorkPermitType,
 )
 
@@ -41,8 +39,6 @@ __all__ = [
     "CreateAttachmentRequestDto",
     # DTOs — inbox
     "ScanInboxRequestDto", "ScanInboxResponseDto",
-    # DTOs — timeline
-    "TimelineWindowDto", "GetTimelineResponseDto",
     # Entities — base
     "BaseEntity", "VersionedEntity",
     # Entities — profile
@@ -61,8 +57,6 @@ __all__ = [
     "InboxEmail",
     # Entities — agent run
     "AgentRun",
-    # Entities — timeline
-    "TimeWindow",
     # Types
     "Currency", "WorkPermitType",
 ]
