@@ -31,13 +31,13 @@ export default function JobListPage() {
     return acc
   }, {})
 
-  const newJobs = byStatus['opened'] ?? []
+  const g = (key: string) => byStatus[key] ?? []
   const groups = [
-    {key: 'opened', label: STATUS_LABELS.opened, count: newJobs.length, items: newJobs},
-    {key: 'shortlisted', label: STATUS_LABELS.shortlisted, count: (byStatus['shortlisted'] ?? []).length, items: byStatus['shortlisted'] ?? []},
-    {key: 'started', label: STATUS_LABELS.started, count: (byStatus['started'] ?? []).length, items: byStatus['started'] ?? []},
-    {key: 'completed', label: STATUS_LABELS.completed, count: (byStatus['completed'] ?? []).length, items: byStatus['completed'] ?? []},
-    {key: 'closed', label: STATUS_LABELS.closed, count: (byStatus['closed'] ?? []).length, items: byStatus['closed'] ?? [], defaultCollapsed: true},
+    {key: 'started', label: STATUS_LABELS.started, count: g('started').length, items: g('started')},
+    {key: 'shortlisted', label: STATUS_LABELS.shortlisted, count: g('shortlisted').length, items: g('shortlisted')},
+    {key: 'opened', label: STATUS_LABELS.opened, count: g('opened').length, items: g('opened')},
+    {key: 'completed', label: STATUS_LABELS.completed, count: g('completed').length, items: g('completed')},
+    {key: 'closed', label: STATUS_LABELS.closed, count: g('closed').length, items: g('closed'), defaultCollapsed: true},
   ]
 
   return (
