@@ -33,7 +33,8 @@ export default function JobListPage() {
 
   const newJobs = byStatus['opened'] ?? []
   const groups = [
-    {key: 'opened', label: 'New', count: newJobs.length, items: newJobs},
+    {key: 'opened', label: STATUS_LABELS.opened, count: newJobs.length, items: newJobs},
+    {key: 'shortlisted', label: STATUS_LABELS.shortlisted, count: (byStatus['shortlisted'] ?? []).length, items: byStatus['shortlisted'] ?? []},
     {key: 'started', label: STATUS_LABELS.started, count: (byStatus['started'] ?? []).length, items: byStatus['started'] ?? []},
     {key: 'completed', label: STATUS_LABELS.completed, count: (byStatus['completed'] ?? []).length, items: byStatus['completed'] ?? []},
     {key: 'closed', label: STATUS_LABELS.closed, count: (byStatus['closed'] ?? []).length, items: byStatus['closed'] ?? [], defaultCollapsed: true},

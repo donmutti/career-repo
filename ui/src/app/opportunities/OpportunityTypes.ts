@@ -75,15 +75,9 @@ export interface ApiOpportunity {
   }
 }
 
-export const STATUS_COLORS: Record<string, string> = {
-  opened: 'var(--color-intent-info)',
-  started: 'var(--color-intent-warning)',
-  completed: 'var(--color-intent-success)',
-  closed: 'var(--color-label-light)',
-}
-
 export const STATUS_LABELS: Record<string, string> = {
   opened: 'New',
+  shortlisted: 'Shortlisted',
   started: 'In progress',
   completed: 'Completed',
   closed: 'Archived',
@@ -91,6 +85,7 @@ export const STATUS_LABELS: Record<string, string> = {
 
 export const STATUS_GROUPS = [
   {key: 'opened', label: STATUS_LABELS.opened},
+  {key: 'shortlisted', label: STATUS_LABELS.shortlisted},
   {key: 'started', label: STATUS_LABELS.started},
   {key: 'completed', label: STATUS_LABELS.completed},
   {key: 'closed', label: STATUS_LABELS.closed},

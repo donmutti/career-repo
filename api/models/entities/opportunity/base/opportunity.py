@@ -11,6 +11,7 @@ from ...base import EntityVersion, VersionedEntity
 
 class OpportunityStatus(str, Enum):
     OPENED = "opened"
+    SHORTLISTED = "shortlisted"
     STARTED = "started"
     COMPLETED = "completed"
     CLOSED = "closed"
