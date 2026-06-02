@@ -4,6 +4,8 @@ from datetime import date, datetime
 from enum import Enum
 from typing import Optional
 
+from pydantic import BaseModel
+
 from ...base import EntityVersion, VersionedEntity
 
 
@@ -131,4 +133,17 @@ class Opportunity(VersionedEntity[OpportunityVersion]):
     sourcing_started_at: Optional[datetime] = None
     sourcing_completed_at: Optional[datetime] = None
     sourcing_agent_run_id: Optional[str] = None
+    avatar_url: Optional[str] = None
+
+
+class OpportunitySimilarity(BaseModel):
+    """Near-duplicate pair returned by GET /opportunities/{id}/similar."""
+
+    id_a: str
+    id_b: str
+    similarity: float
+    created_at: datetime
+    updated_at: datetime
+    title: Optional[str] = None
+    organization_name: Optional[str] = None
     avatar_url: Optional[str] = None

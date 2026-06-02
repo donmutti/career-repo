@@ -15,8 +15,9 @@ import {ListView} from '@/shared/controls/views/ListView'
 import {ShowMoreView} from '@/shared/controls/views/ShowMoreView'
 import {CommentRow} from '@/app/opportunities/CommentRow'
 import {AttachmentRow} from '@/app/opportunities/AttachmentRow'
+import {SimilarOpportunityRow} from '@/app/opportunities/SimilarOpportunityRow'
 import {ScoreBadge} from '@/shared/controls/buttons/ScoreBadge'
-import {Attachment, Comment, STATUS_GROUPS} from '@/app/opportunities/OpportunityTypes'
+import {Attachment, Comment, OpportunitySimilarity, STATUS_GROUPS} from '@/app/opportunities/OpportunityTypes'
 import {formatDuration, formatPay} from '@/shared/utils/FormatUtils'
 import {DateLabel} from '@/shared/controls/DateLabel'
 import {IconButton} from '@/shared/controls/buttons/IconButton'
@@ -43,10 +44,15 @@ export function JobView({opportunityId}: JobViewProps) {
     generateCoverLetter, isGeneratingCoverLetter, coverLetterRunCreatedAt, cancelCoverLetter,
     deleteAttachment,
     deleteOpportunity, isDeletingOpportunity,
+    similarOpportunities, absorb, isAbsorbing,
   } = useOpportunity(opportunityId, {
 
     onDeleted: () => {
       setDeleteDialogOpen(false)
+      navigate('/opportunities/jobs')
+    },
+
+    onAbsorbed: () => {
       navigate('/opportunities/jobs')
     },
 
@@ -249,6 +255,30 @@ export function JobView({opportunityId}: JobViewProps) {
             )}
           />
         </div>
+
+        {/* Similar opportunities */}
+        {(similarOpportunities as OpportunitySimilarity[]).length > 0 && (
+          <div className="px-3 border-b border-frame-lighter pb-3">
+            <div className="mx-3">
+              <GroupView
+                label="Similar opportunities"
+                count={(similarOpportunities as OpportunitySimilarity[]).length}
+              >
+                <div className="flex flex-col gap-y-1 px-2">
+                  {(similarOpportunities as OpportunitySimilarity[]).map(match => (
+                    <SimilarOpportunityRow
+                      key={`${match.id_a}-${match.id_b}`}
+                      match={match}
+                      opportunityId={opportunityId}
+                      onAbsorb={() => absorb(match.id_a === opportunityId ? match.id_b : match.id_a)}
+                      isAbsorbing={isAbsorbing}
+                    />
+                  ))}
+                </div>
+              </GroupView>
+            </div>
+          </div>
+        )}
 
         {/* Notes */}
         <div className="px-3 border-b border-frame-lighter pb-3">

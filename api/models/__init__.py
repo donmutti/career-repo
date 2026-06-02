@@ -12,7 +12,7 @@ from .entities import (
     BaseEntity,
     VersionedEntity,
     Profile, ProfileVersion,
-    Opportunity, OpportunityVersion,
+    Opportunity, OpportunityVersion, OpportunitySimilarity,
     OpportunityStatus, OpportunityType,
     JobContractType, JobPayPeriod, JobWorkMode,
     ProjectType,
@@ -44,7 +44,7 @@ __all__ = [
     # Entities — profile
     "Profile", "ProfileVersion",
     # Entities — opportunity
-    "OpportunityStatus", "OpportunityType", "OpportunityVersion", "Opportunity",
+    "OpportunityStatus", "OpportunityType", "OpportunityVersion", "Opportunity", "OpportunitySimilarity",
     "JobContractType", "JobPayPeriod", "JobWorkMode",
     "ProjectType",
     "EducationType", "EducationLevel",

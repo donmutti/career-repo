@@ -1,5 +1,6 @@
 from .opportunity import (
     OpportunityStatus, OpportunityType, OpportunityVersion, Opportunity,
+    OpportunitySimilarity,
     JobContractType, JobPayPeriod, JobWorkMode,
     ProjectType,
     EducationType, EducationLevel,
@@ -9,6 +10,7 @@ from .opportunity import (
 
 __all__ = [
     "OpportunityStatus", "OpportunityType", "OpportunityVersion", "Opportunity",
+    "OpportunitySimilarity",
     "JobContractType", "JobPayPeriod", "JobWorkMode",
     "ProjectType",
     "EducationType", "EducationLevel",

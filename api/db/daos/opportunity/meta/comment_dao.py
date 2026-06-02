@@ -11,10 +11,10 @@ class CommentDAO(VersionedEntityDAO[Comment]):
     version_table_name = "comment_version"
     version_fk_column = "comment_id"
 
-    def create(self, opportunity_id: str, version: CommentVersion) -> Comment:
+    def create(self, opportunity_id: str, version: CommentVersion, created_at: Optional[str] = None) -> Comment:
         """Create a comment on an opportunity."""
         comment_id = self._generate_id()
-        now = self._now()
+        now = created_at or self._now()
         self._execute(
             f"INSERT INTO {self.table_name} (id, opportunity_id, created_at) VALUES (?, ?, ?)",
             (comment_id, opportunity_id, now),
@@ -52,6 +52,14 @@ class CommentDAO(VersionedEntityDAO[Comment]):
             except ValueError:
                 pass
         return result
+
+    def relink(self, comment_id: str, new_opportunity_id: str) -> None:
+        """Move a comment to a different opportunity."""
+        self._execute(
+            "UPDATE comment SET opportunity_id = ? WHERE id = ?",
+            (new_opportunity_id, comment_id),
+        )
+        self._save()
 
     def delete(self, comment_id: str) -> None:
         """Delete a comment and all its versions."""

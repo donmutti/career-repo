@@ -73,7 +73,7 @@ career-repo/
 Tech stack:
 
 - DB: SQLite, append-only versioning, UUID v4 identifiers
-- API: Python 3.13, FastAPI, Pydantic, uv, raw `sqlite3` for data access, `claude-agent-sdk` for AI
+- API: Python 3.13, FastAPI, Pydantic, uv, raw `sqlite3` for data access, `claude-agent-sdk` for AI, `sentence-transformers` + `sqlite-vec` for local embeddings
 - UI: TypeScript, React 19, Vite, React Router, TanStack Query, Tailwind 4, Radix UI, Lucide
 
 ---
@@ -205,6 +205,19 @@ EducationLevel (enum): BACHELOR | MASTER | PHD | PROFESSIONAL | ASSOCIATE | OTHE
 NetworkingType (enum): MEET | ATTEND | HOST
 LearningType (enum): BOOK | ARTICLE | MEDIA | REPOSITORY | STUDY | OTHER
 Currency: ISO 4217 string (e.g. "USD", "EUR")
+
+### 4.3. OpportunitySimilarity
+
+OpportunitySimilarity (Pydantic BaseModel) — a detected near-duplicate pair; returned by `GET /opportunities/{id}/similar`; represents only undismissed rows:
+
+- id_a: str — lexicographically smaller of the two opportunity IDs
+- id_b: str — lexicographically larger of the two opportunity IDs
+- similarity: float — cosine similarity 0.0–1.0
+- created_at: datetime
+- updated_at: datetime
+- title: str (optional) — inlined from the neighbor opportunity; not stored in DB
+- organization_name: str (optional) — inlined from the neighbor opportunity
+- avatar_url: str (optional) — inlined from the neighbor opportunity
 
 ### 4.4. Attachment
 
@@ -483,6 +496,22 @@ Versioned entities: two-table pattern — `<entity>` holds identity table (`id`,
 - completed_at TEXT
 - created_at TEXT not null
 
+`opportunity_embedding` — stores a packed float32 vector for each sourced opportunity; used for similarity detection:
+
+- opportunity_id TEXT primary key (references `opportunity`, on delete cascade)
+- embedding BLOB not null — packed float32[] vector (sentence-transformers `all-MiniLM-L6-v2`, 384 dimensions)
+- updated_at TEXT not null
+
+`opportunity_similarity` — undirected near-duplicate pair detected by cosine similarity; key is always normalised to `(min(id_a, id_b), max(id_a, id_b))`:
+
+- id_a TEXT not null (references `opportunity`, on delete cascade) — lexicographically smaller ID
+- id_b TEXT not null (references `opportunity`, on delete cascade) — lexicographically larger ID
+- similarity REAL not null — cosine similarity 0.0–1.0
+- dismissed_at TEXT — null = active; non-null = dismissed by user
+- created_at TEXT not null
+- updated_at TEXT not null
+- primary key (id_a, id_b)
+
 Indices:
 
 - `<entity>_id` + `active_to` on all version tables
@@ -493,6 +522,7 @@ Indices:
 - `external_id`, `received_at` on `inbox_email`
 - `inbox_email_id` on `email_opportunity`
 - `status` on `agent_run`
+- `id_a`, `id_b` on `opportunity_similarity` (separate indices)
 
 ---
 
@@ -637,6 +667,17 @@ Opportunity (VersionedEntity[OpportunityVersion]):
 - sourcing_completed_at: datetime (optional)
 - sourcing_agent_run_id: str (optional)
 
+OpportunitySimilarity (Pydantic BaseModel) — near-duplicate pair; returned by the similarity endpoint; dismissed_at is excluded (only undismissed rows are returned):
+
+- id_a: str
+- id_b: str
+- similarity: float
+- created_at: datetime
+- updated_at: datetime
+- title: str (optional)
+- organization_name: str (optional)
+- avatar_url: str (optional)
+
 CommentVersion (EntityVersion):
 
 - body: str
@@ -759,6 +800,7 @@ CommentDAO (VersionedEntityDAO[Comment]):
 - `create(opportunity_id, version): Comment`
 - `get(comment_id): Comment | None`
 - `list_for_opportunity(opportunity_id): list[Comment]`
+- `relink(comment_id, new_opportunity_id): None` — reassigns a comment to a different opportunity; used during absorb
 
 AttachmentDAO (BaseEntityDAO[Attachment]):
 
@@ -800,6 +842,20 @@ AgentRunDAO (BaseEntityDAO[AgentRun]):
 - `set_meta(run_id, meta: dict): None` — updates the `meta` field; used for progress reporting during long-running scans
 - `delete(run_id): None`
 
+OpportunityEmbeddingDAO (plain class, not BaseEntityDAO):
+
+- `upsert(opportunity_id, vector: list[float]): None` — insert or replace embedding; vector packed as float32 BLOB
+- `get(opportunity_id): list[float] | None` — returns unpacked vector
+- `find_similar(opportunity_id, top_k=5, min_similarity=0.85): list[tuple[str, float]]` — returns `[(similar_id, similarity), ...]`; excludes the query opportunity and any pairs already dismissed (dismissed_at IS NOT NULL); uses `sqlite-vec` cosine distance
+
+OpportunitySimilarityDAO (plain class, not BaseEntityDAO):
+
+- `upsert(id_a, id_b, similarity): None` — normalises key order (lexicographic min/max); inserts or updates similarity and updated_at
+- `list_for_opportunity(opportunity_id): list[OpportunitySimilarity]` — undismissed rows where id_a = opp_id OR id_b = opp_id; inlines title, organization_name, avatar_url via JOIN against opportunity and opportunity_version
+- `get_raw_pair(id_a, id_b): dict | None` — returns raw row including dismissed_at; used by the absorb handler for the 409 guard
+- `dismiss(id_a, id_b): None` — sets dismissed_at; normalises key order
+- `delete_pair(id_a, id_b): None` — hard delete; normalises key order; called after confirmed absorb
+
 ### 6.3. Services
 
 #### 6.3.1. FileService
@@ -811,9 +867,21 @@ FileService:
 - `write_md(relative_path, md_content): Path` — writes Markdown file under attachment_root
 - `write_pdf(relative_path, md_content): Path` — renders Markdown to PDF via weasyprint; raises `RuntimeError` if weasyprint unavailable
 
-#### 6.3.2. ClaudeService
+#### 6.3.2. EmbeddingService
 
-##### 6.3.2.1. Invocation
+Handles local text embedding for similarity detection. Separate from `ClaudeService` — has no involvement with the Claude agent SDK. Source lives in `api/services/ai/embedding_service.py`.
+
+Uses `sentence-transformers` to load `all-MiniLM-L6-v2` from HF Hub (downloaded to `.cache/huggingface/` in the repo root on first use, ~22 MB, fully offline thereafter). Inference runs in a thread pool to avoid blocking the event loop. No API key required.
+
+Instantiated as a module-level singleton `embedding` in `api/services/ai/__init__.py` alongside the existing `claude` singleton.
+
+EmbeddingService:
+
+- `async embed(text: str): list[float]` — encodes text to a 384-dim normalised float vector
+
+#### 6.3.3. ClaudeService
+
+##### 6.3.3.1. Invocation
 
 Claude invoked in-process via the `claude-agent-sdk` Python SDK. Source lives in `api/services/ai/`. Prompt templates live in `api/services/ai/commands/` as `.md` files; each file is the **system prompt** for one operation. Structured input is passed as the **user message**, wrapped in `<input>` tags, and the prompt explicitly instructs Claude to treat tag contents as untrusted data.
 
@@ -841,7 +909,7 @@ All Claude invocations flow through one private primitive: `_run_stream()`. It o
 8. On failure or timeout: marks `AgentRun` `failed`; emits `error` event with `run_id` and `message`; removes task from registry; raises `ClaudeError`.
 9. On cancellation: marks `AgentRun` `cancelled`; emits `cancelled` event with `run_id`; removes task from registry; re-raises `asyncio.CancelledError` after the event has been yielded, so any non-streaming caller still sees the exception.
 
-##### 6.3.2.2. Streaming
+##### 6.3.3.2. Streaming
 
 `StreamEvent` (Pydantic BaseModel) — single event in the underlying stream; emitted by `_run_stream()` and forwarded to clients by `stream_to_client()`:
 
@@ -852,7 +920,7 @@ Every stream ends with exactly one terminal event: `done`, `cancelled`, or `erro
 
 `stream_to_client()` delegates to `_run_stream()` and yields events verbatim. Used exclusively by the SSE endpoint (`POST /agent-runs`). It does not parse output; the client is responsible for any aggregation.
 
-##### 6.3.2.3. Public surface
+##### 6.3.3.3. Public surface
 
 ClaudeService:
 
@@ -870,7 +938,7 @@ All named methods (`scan_inbox`, `extract_opportunities`, `source_opportunity`, 
 
 `cancel(run_id)` looks up the task in the registry and calls `task.cancel()`; the SDK aborts the in-flight request. Used by `DELETE /agent-runs/{id}`.
 
-##### 6.3.2.4. Per-command tool allowlist
+##### 6.3.3.4. Per-command tool allowlist
 
 Resolved by `_run_stream()` from the command file name:
 
@@ -881,13 +949,13 @@ Resolved by `_run_stream()` from the command file name:
 - `generate-attachment.md` — none
 - `parse-work-experience-from-resume.md` — none
 
-##### 6.3.2.5. Output parsing
+##### 6.3.3.5. Output parsing
 
 JSON-returning commands instruct Claude in the system prompt to return **only** a JSON object or array — no prose, no markdown fences. The parser in each named method is strict: `json.loads()` on the trimmed assistant text. On parse failure, `ClaudeError` is raised; the caller may retry. No regex fallback.
 
 `generate_markdown_attachment` returns assistant text unmodified.
 
-##### 6.3.2.6. Authentication
+##### 6.3.3.6. Authentication
 
 SDK uses the credentials configured by the Claude Code CLI (subscription login or `ANTHROPIC_API_KEY` env var). The repo does not manage auth.
 
@@ -945,6 +1013,9 @@ All endpoints prefixed with `/api`. Source lives in `api/routers/`.
 - `POST /opportunities/{id}/attachments` — creates attachment
 - `GET /opportunities/{id}/cover-letter/active` — returns active cover-letter run id or null
 - `POST /opportunities/{id}/cover-letter` — generates cover letter for a Job opportunity; runs in background; 202
+- `GET /opportunities/{id}/similar` — returns list[OpportunitySimilarity] for undismissed near-duplicate pairs; 404 if opportunity not found
+- `DELETE /opportunities/{id}/similar/{neighbor_id}` — dismisses a near-duplicate candidate (sets dismissed_at); 404 if either opportunity not found; 204
+- `POST /opportunities/{id}/absorb/{neighbor_id}` — merges neighbor into this opportunity, relinks comments, hard-deletes neighbor, deletes similarity row; 404 if either not found; 409 if pair is already dismissed; 204
 - `GET /attachments/{id}/download` — downloads attachment file
 
 #### 6.4.6. Comments
@@ -1098,14 +1169,14 @@ ScoreBadge - colored badge displaying a numeric score (0–10) as a grade letter
   - `sm` - `p-1 text-sm rounded-sm`
   - `md` - `p-2 text-base rounded`
 
-Grade mapping (score to letter and token):
+Grade mapping (score to color token):
 
-- A (9.0–10.0): `score-a` — lime
-- B (7.0–8.9): `score-b` — green
-- C (5.0–6.9): `score-c` — yellow
-- D (3.0–4.9): `score-d` — orange
-- E (1.0–2.9): `score-e` — red
-- F (0.0): `score-f` — neutral stone (unscored)
+- A (9.0–10.0): `score-a` — filled bg + white text (Excellent)
+- B (7.0–8.9): `score-b` — border + text only (Good)
+- C (5.0–6.9): `score-c` — border + text only (Average)
+- D (3.0–4.9): `score-d` — border + text only (Below average)
+- E (1.0–2.9): `score-e` — border + text only (Poor)
+- F (0.0): `score-f` — border + text only, neutral stone (unscored)
 
 #### 7.1.2. Edits
 
@@ -1406,13 +1477,13 @@ Semantic tokens (light / dark):
 - `intent-danger-text`: `#ffffff` / `#0f172a` — text color for error/destructive states
 - `intent-success`: `#22c55e` / `#4ade80` — bg color for success states
 - `intent-success-text`: `#ffffff` / `#0f172a` — text color for success states
-- `score-a`: `#84cc16` / `#a3e635` — grade A background (lime)
-- `score-b`: `#22c55e` / `#4ade80` — grade B background (green)
-- `score-c`: `#eab308` / `#facc15` — grade C background (yellow)
-- `score-d`: `#f97316` / `#fb923c` — grade D background (orange)
-- `score-e`: `#ef4444` / `#f87171` — grade E background (red)
-- `score-f`: `#a8a29e` / `#a8a29e` — grade F background (neutral, unscored)
-- `score-text`: `#ffffff` / `#0f172a` — text color for all score badges
+- `score-a`: `#65a30d` / `#84cc16` — grade A (Excellent); used as filled bg + `score-text` foreground
+- `score-b`: `#92aa40` / `#b8e060` — grade B (Good); used as border + text color
+- `score-c`: `#c88840` / `#f0c040` — grade C (Average); used as border + text color
+- `score-d`: `#c87848` / `#f09060` — grade D (Below average); used as border + text color
+- `score-e`: `#c86060` / `#e86060` — grade E (Poor); used as border + text color
+- `score-f`: `#a8a29e` / `#a8a29e` — grade F (unscored); used as border + text color
+- `score-text`: `#ffffff` / `#0f172a` — text color for filled (Excellent) badges only
 
 #### 7.2.2. Layout utilities
 
@@ -1625,6 +1696,7 @@ Type list pages: `JobListPage`, `ProjectListPage`, `EducationListPage`, `Network
 - Pay section (if present)
 - Cover letters section: `GroupView` with "Generate cover letter" action; `ListView` of `AttachmentRow`; spinner with elapsed timer while generating
 - Description section: `GroupedListView` with "Edit" action; `ShowMoreView` wrapping `TextEdit`
+- Possible duplicates section: collapsible `GroupView` with count; hidden when empty; renders `SimilarOpportunityRow` per item; positioned just above Notes
 - Notes section: `GroupedListView` with "Add note" action; `CommentRow` per note
 
 `OpportunityMenu` — `DropdownButton` with `IconButton` trigger:
@@ -1635,6 +1707,11 @@ Type list pages: `JobListPage`, `ProjectListPage`, `EducationListPage`, `Network
 - Delete (opens `ConfirmationDialog`)
 
 `CommentRow` — note row with hover `CommentMenu` (Edit, Delete); new note row submits on Enter, cancels on Escape/blur.
+
+`SimilarOpportunityRow` — row in the "Similar opportunities" group; entire row is clickable and navigates to the neighbor opportunity:
+
+- Shows avatar, title, organization name, similarity percentage (e.g. "97% similar") right-aligned
+- **More** menu (`MoreVertical` icon, `sm` `IconButton`), visible on hover only — contains one item: **Absorb as duplicate** (`SquaresUnite` icon) — opens `ConfirmationDialog`: "This will merge [title – org] into this opportunity. Proceed and merge?" Severity `danger`; on confirm calls `POST /opportunities/{id}/absorb/{neighbor_id}`
 
 #### 7.9.3. Inbox
 
@@ -1776,3 +1853,21 @@ Triage email opportunities:
 - User clicks "Decline" to un-skip; `EmailOpportunity` status set to `skipped`.
 - When all email opportunities for an email are triaged, the attention dot clears for that email.
 - When all emails are triaged for the selected filter group, the attention dot clears for that filter group.
+
+### 8.5. Opportunity similarity
+
+Detect similar opportunities (automatic, runs after each sourcing):
+
+- After sourcing completes, system assembles an embed string by joining non-null fields with ` | `: `{organization_name} | {title} | {organization_unit_name}` (`organization_unit_name` is ephemeral — from sourcer output, not persisted). If no fields are present, stops — not enough signal.
+- System encodes the string locally via `EmbeddingService`, stores the vector in `opportunity_embedding`.
+- System queries `sqlite-vec` for the top-5 nearest neighbors by cosine distance; excludes the opportunity itself and any already-dismissed pairs.
+- Any neighbor with cosine similarity ≥ 0.94 is written to `opportunity_similarity` as `(min(id_a, id_b), max(id_a, id_b), similarity)` — upserted.
+- "Similar opportunities (N)" `GroupView` appears just above Notes in `JobView` for any opportunity with undismissed matches.
+
+Absorb a duplicate opportunity:
+
+- User opens the More menu on a "Similar opportunities" row and clicks **Absorb as duplicate**.
+- `ConfirmationDialog` opens: "This will merge [title – org] into this opportunity. Proceed and merge?"
+- User confirms; system calls `POST /opportunities/{id}/absorb/{neighbor_id}`.
+- Server keeps canonical's version fields unchanged; relinks duplicate's comments to canonical; creates a new note dated to duplicate's `created_at` with a meta line `"Copied from [title – org] (url)"` (url omitted if absent; plus `" · Pay: {currency}{min} – {currency}{max}/{period}"` if duplicate has pay data) followed by the duplicate's description if present; hard-deletes duplicate; deletes similarity row.
+- UI invalidates the opportunities list and all cached similar-opportunity queries; navigates to the list page.

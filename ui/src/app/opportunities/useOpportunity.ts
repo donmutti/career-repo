@@ -3,12 +3,13 @@ import {useMutation, useQuery} from '@tanstack/react-query'
 import {queryKeys} from '@/services/queryKeys'
 import {opportunities as opApi, attachments as attachApi, agentRuns as agentRunsApi} from '@/services/client'
 import {queryClient} from '@/services/queryClient'
-import {Opportunity} from '@/app/opportunities/OpportunityTypes'
+import {Opportunity, OpportunitySimilarity} from '@/app/opportunities/OpportunityTypes'
 
 const TERMINAL_STATUSES = ['completed', 'failed', 'cancelled']
 
 interface UseOpportunityOptions {
   onDeleted?: () => void
+  onAbsorbed?: (neighborId: string) => void
 }
 
 export function useOpportunity(opportunityId: string, options: UseOpportunityOptions = {}) {
@@ -64,6 +65,12 @@ export function useOpportunity(opportunityId: string, options: UseOpportunityOpt
       queryClient.invalidateQueries({queryKey: queryKeys.activeCoverLetterRun(opportunityId)})
     }
   }, [coverLetterRunStatus, opportunityId])
+
+  const {data: similarData} = useQuery({
+    queryKey: queryKeys.opportunitySimilar(opportunityId),
+    queryFn: () => opApi.similar(opportunityId),
+  })
+  const similarOpportunities = (similarData as OpportunitySimilarity[] | undefined) ?? []
 
   const opportunity = opp as Opportunity | undefined
   const isServerSourcing = !!(opportunity?.sourcing_started_at && !opportunity?.sourcing_completed_at)
@@ -154,6 +161,25 @@ export function useOpportunity(opportunityId: string, options: UseOpportunityOpt
     },
   })
 
+  const dismissSimilarMutation = useMutation({
+    mutationFn: (neighborId: string) => opApi.dismissSimilar(opportunityId, neighborId),
+    onSuccess: () => queryClient.invalidateQueries({queryKey: queryKeys.opportunitySimilar(opportunityId)}),
+  })
+
+  const absorbMutation = useMutation({
+    mutationFn: (neighborId: string) => opApi.absorb(opportunityId, neighborId),
+    onSuccess: (_, neighborId) => {
+      queryClient.invalidateQueries({queryKey: queryKeys.opportunities})
+      queryClient.invalidateQueries({queryKey: queryKeys.opportunitySimilar(opportunityId)})
+      queryClient.getQueryCache().findAll({queryKey: ['opportunities']}).forEach(query => {
+        if (query.queryKey.length === 3 && query.queryKey[2] === 'similar') {
+          queryClient.invalidateQueries({queryKey: query.queryKey})
+        }
+      })
+      options.onAbsorbed?.(neighborId)
+    },
+  })
+
   return {
     opportunity,
     isLoading,
@@ -174,5 +200,9 @@ export function useOpportunity(opportunityId: string, options: UseOpportunityOpt
     deleteAttachment: deleteAttachmentMutation.mutate,
     deleteOpportunity: deleteMutation.mutate,
     isDeletingOpportunity: deleteMutation.isPending,
+    similarOpportunities,
+    dismissSimilar: dismissSimilarMutation.mutate,
+    absorb: absorbMutation.mutate,
+    isAbsorbing: absorbMutation.isPending,
   }
 }

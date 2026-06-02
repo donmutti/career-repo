@@ -7,6 +7,7 @@ export const queryKeys = {
   opportunityComments: (id: string) => ['opportunities', id, 'comments'] as const,
   opportunityAgentRuns: (id: string) => ['opportunities', id, 'agent-runs'] as const,
   activeCoverLetterRun: (id: string) => ['opportunities', id, 'cover-letter', 'active'] as const,
+  opportunitySimilar: (id: string) => ['opportunities', id, 'similar'] as const,
   inboxCounts: ['inbox', 'counts'] as const,
   inboxSortedCounts: ['inbox', 'sorted-counts'] as const,
   inboxList: (window: string) => ['inbox', window] as const,

@@ -101,6 +101,9 @@ export const opportunities = {
   addComment: (id: string, data: unknown) => apiFetch<unknown>(`/opportunities/${id}/comments`, {method: 'POST', body: JSON.stringify(data)}),
   updateComment: (id: string, data: unknown) => apiFetch<unknown>(`/comments/${id}`, {method: 'PATCH', body: JSON.stringify(data)}),
   deleteComment: (id: string) => apiFetch<void>(`/comments/${id}`, {method: 'DELETE'}),
+  similar: (id: string) => apiFetch<unknown>(`/opportunities/${id}/similar`),
+  dismissSimilar: (id: string, neighborId: string) => apiFetch<void>(`/opportunities/${id}/similar/${neighborId}`, {method: 'DELETE'}),
+  absorb: (id: string, neighborId: string) => apiFetch<void>(`/opportunities/${id}/absorb/${neighborId}`, {method: 'POST'}),
 }
 
 // Inbox

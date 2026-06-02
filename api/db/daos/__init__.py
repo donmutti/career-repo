@@ -2,6 +2,8 @@ from .agent import AgentRunDAO
 from .base import BaseEntityDAO, VersionedEntityDAO
 from .opportunity import (
     OpportunityDAO,
+    OpportunityEmbeddingDAO,
+    OpportunitySimilarityDAO,
     CommentDAO,
     AttachmentDAO,
 )
@@ -12,6 +14,8 @@ __all__ = [
     "BaseEntityDAO",
     "VersionedEntityDAO",
     "OpportunityDAO",
+    "OpportunityEmbeddingDAO",
+    "OpportunitySimilarityDAO",
     "CommentDAO",
     "AttachmentDAO",
     "InboxEmailDAO", "EmailOpportunityDAO",

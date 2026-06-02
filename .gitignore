@@ -22,6 +22,9 @@ ui/node_modules/
 ui/dist/
 ui/src/api/generated/
 
+# Local model cache
+.cache/
+
 # macOS
 .DS_Store
 

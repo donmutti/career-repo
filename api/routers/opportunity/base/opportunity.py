@@ -12,9 +12,11 @@ from ....db import (
     OpportunityDAO, ProfileDAO, WorkExperienceDAO,
     CommentDAO, AttachmentDAO,
     AgentRunDAO,
+    OpportunityEmbeddingDAO, OpportunitySimilarityDAO,
 )
 from ....models import (
     Opportunity, OpportunityVersion, OpportunityStatus, OpportunityType,
+    OpportunitySimilarity,
     JobContractType, JobWorkMode, JobPayPeriod,
     ProjectType, EducationType, EducationLevel, NetworkingType, LearningType,
     CreateOpportunityRequestDto, UpdateOpportunityRequestDto,
@@ -22,7 +24,7 @@ from ....models import (
     Attachment, AttachmentType, CreateAttachmentRequestDto,
     AgentRun,
 )
-from ....services.ai import ClaudeError, claude
+from ....services.ai import ClaudeError, claude, embedding
 from ....services.files import FileService
 
 router = APIRouter(prefix="/opportunities", tags=["opportunities"])
@@ -34,6 +36,8 @@ work_experience_dao = WorkExperienceDAO()
 comment_dao = CommentDAO()
 attach_dao = AttachmentDAO()
 agent_run_dao = AgentRunDAO()
+embedding_dao = OpportunityEmbeddingDAO()
+similarity_dao = OpportunitySimilarityDAO()
 files = FileService(ROOT / get_attachment_path())
 
 
@@ -180,6 +184,7 @@ async def source_opportunity(opportunity_id: str):
             opp_dao.set_sourcing_completed(opportunity_id)
             return
         avatar_url = sourced.pop("avatar_url", None)
+        organization_unit_name = sourced.pop("organization_unit_name", None)
         updates = {k: v for k, v in sourced.items() if v is not None}
         typed = _parse_version_fields(updates)
         enriched = opportunity.model_copy(update={
@@ -189,6 +194,21 @@ async def source_opportunity(opportunity_id: str):
         if avatar_url:
             opp_dao.set_avatar_url(opportunity_id, avatar_url)
         opp_dao.set_sourcing_completed(opportunity_id)
+
+        try:
+            opp = opp_dao.get(opportunity_id)
+            if opp and opp.active_version:
+                org = opp.active_version.organization_name
+                parts = [p for p in ([org] * 5 if org else []) + [opp.active_version.title, organization_unit_name] if p]
+                embed_str = " | ".join(parts)
+                if embed_str:
+                    vector = await embedding.embed(embed_str)
+                    embedding_dao.upsert(opportunity_id, vector)
+                    similar = embedding_dao.find_similar(opportunity_id)
+                    for similar_id, sim_score in similar:
+                        similarity_dao.upsert(opportunity_id, similar_id, sim_score)
+        except Exception:
+            pass
 
     asyncio.create_task(_run())
     return {"status": "started"}
@@ -289,6 +309,74 @@ async def generate_cover_letter(opportunity_id: str):
 
     asyncio.create_task(_generate())
     return {"run_id": run.id}
+
+
+# ---------------------------------------------------------------------------
+# Similarity
+# ---------------------------------------------------------------------------
+
+@router.get("/{opportunity_id}/similar", response_model=List[OpportunitySimilarity])
+def list_similar(opportunity_id: str):
+    """Return undismissed near-duplicate candidates for an opportunity."""
+    if not opp_dao.get(opportunity_id):
+        raise HTTPException(status_code=404, detail="Opportunity not found")
+    return similarity_dao.list_for_opportunity(opportunity_id)
+
+
+@router.delete("/{opportunity_id}/similar/{neighbor_id}", status_code=204)
+def dismiss_similar(opportunity_id: str, neighbor_id: str):
+    """Dismiss a near-duplicate candidate (sets dismissed_at)."""
+    if not opp_dao.get(opportunity_id):
+        raise HTTPException(status_code=404, detail="Opportunity not found")
+    if not opp_dao.get(neighbor_id):
+        raise HTTPException(status_code=404, detail="Neighbor opportunity not found")
+    similarity_dao.dismiss(opportunity_id, neighbor_id)
+
+
+@router.post("/{opportunity_id}/absorb/{neighbor_id}", status_code=204)
+def absorb_opportunity(opportunity_id: str, neighbor_id: str):
+    """Merge neighbor into this opportunity, then hard-delete the neighbor."""
+    canonical = opp_dao.get(opportunity_id)
+    if not canonical:
+        raise HTTPException(status_code=404, detail="Opportunity not found")
+    duplicate = opp_dao.get(neighbor_id)
+    if not duplicate:
+        raise HTTPException(status_code=404, detail="Neighbor opportunity not found")
+
+    pair = similarity_dao.get_raw_pair(opportunity_id, neighbor_id)
+    if pair and pair.get("dismissed_at"):
+        raise HTTPException(status_code=409, detail="Similarity pair has already been dismissed")
+
+    c = canonical.active_version
+    d = duplicate.active_version
+
+    # Relink duplicate's comments
+    for comment in comment_dao.list_for_opportunity(neighbor_id):
+        comment_dao.relink(comment.id, opportunity_id)
+
+    # Create absorbed note with duplicate's metadata and description
+    dup_label = " – ".join(filter(None, [d.title, d.organization_name]))
+    url_part = f" ({duplicate.url})" if duplicate.url else ""
+    meta_parts = [f"Copied from {dup_label}{url_part}"]
+    if d.job_pay_min or d.job_pay_max:
+        currency = d.job_pay_currency or ""
+        period = f"/{d.job_pay_period.value}" if d.job_pay_period else ""
+        pay_str = f"{currency}{int(d.job_pay_min):,}" if d.job_pay_min else ""
+        if d.job_pay_max:
+            pay_str += f" – {currency}{int(d.job_pay_max):,}"
+        meta_parts.append(f"Pay: {pay_str}{period}")
+    meta_line = " · ".join(meta_parts)
+    note_body = f"{meta_line}:\n\n{d.description}" if d.description else meta_line
+    comment_dao.create(opportunity_id, CommentVersion(body=note_body), created_at=duplicate.created_at.isoformat())
+
+    # Apply canonical version unchanged
+    opp_dao.update(opportunity_id, c)
+
+    # Delete similarity row before deleting duplicate (avoid cascade race)
+    similarity_dao.delete_pair(opportunity_id, neighbor_id)
+
+    # Hard-delete duplicate
+    opp_dao.delete(neighbor_id)
 
 
 # ---------------------------------------------------------------------------

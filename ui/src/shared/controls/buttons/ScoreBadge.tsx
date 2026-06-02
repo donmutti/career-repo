@@ -21,9 +21,11 @@ export function ScoreBadge({score, size = 'sm'}: ScoreBadgeProps) {
       </span>
     )
   }
+  const isExcellent = score >= 9.0
   const borderClass = 'border border-current'
+  const fillClass = isExcellent ? 'bg-score-a text-score-text border-score-a' : ''
   return (
-    <span className={`inline-flex items-center justify-center font-medium text-center ${sizeClass} ${getColorClass(score)} ${borderClass}`}>
+    <span className={`inline-flex items-center justify-center font-medium text-center ${sizeClass} ${isExcellent ? fillClass : `${getColorClass(score)} ${borderClass}`}`}>
       {score.toFixed(1)}
     </span>
   )

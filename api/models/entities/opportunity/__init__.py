@@ -1,5 +1,6 @@
 from .base.opportunity import (
     OpportunityStatus, OpportunityType, OpportunityVersion, Opportunity,
+    OpportunitySimilarity,
     JobContractType, JobPayPeriod, JobWorkMode,
     ProjectType,
     EducationType, EducationLevel,
@@ -10,6 +11,7 @@ from .meta import AttachmentType, Attachment, Comment, CommentVersion
 
 __all__ = [
     "OpportunityStatus", "OpportunityType", "OpportunityVersion", "Opportunity",
+    "OpportunitySimilarity",
     "JobContractType", "JobPayPeriod", "JobWorkMode",
     "ProjectType",
     "EducationType", "EducationLevel",

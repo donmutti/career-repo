@@ -3,6 +3,7 @@ from .base import BaseEntity, EntityVersion, VersionedEntity
 from .inbox import InboxEmail, EmailOpportunity
 from .opportunity import (
     OpportunityStatus, OpportunityType, OpportunityVersion, Opportunity,
+    OpportunitySimilarity,
     JobContractType, JobPayPeriod, JobWorkMode,
     ProjectType,
     EducationType, EducationLevel,
@@ -23,7 +24,7 @@ __all__ = [
     "LearningType",
     "Currency", "WorkPermitType",
     "Profile", "ProfileVersion",
-    "OpportunityVersion", "Opportunity",
+    "OpportunityVersion", "Opportunity", "OpportunitySimilarity",
     "AttachmentType", "Attachment", "Comment", "CommentVersion",
     "InboxEmail", "EmailOpportunity",
     "AgentRun",

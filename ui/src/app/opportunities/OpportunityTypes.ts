@@ -40,6 +40,17 @@ export interface Comment {
   active_version: CommentVersion
 }
 
+export interface OpportunitySimilarity {
+  id_a: string
+  id_b: string
+  similarity: number
+  created_at: string
+  updated_at: string
+  title?: string | null
+  organization_name?: string | null
+  avatar_url?: string | null
+}
+
 export interface Attachment {
   id: string
   type: string

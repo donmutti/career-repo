@@ -1,6 +1,7 @@
 import json
 import os
 import sqlite3
+import sqlite_vec
 import threading
 from pathlib import Path
 
@@ -16,6 +17,9 @@ def get_db_connection() -> sqlite3.Connection:
         db_path.parent.mkdir(parents=True, exist_ok=True)
         _local.conn = sqlite3.connect(str(db_path), timeout=10)
         _local.conn.row_factory = sqlite3.Row
+        _local.conn.enable_load_extension(True)
+        sqlite_vec.load(_local.conn)
+        _local.conn.enable_load_extension(False)
         _local.conn.execute("PRAGMA journal_mode = WAL")
         _local.conn.execute("PRAGMA foreign_keys = ON")
         _local.conn.execute("PRAGMA busy_timeout = 10000")
@@ -71,6 +75,9 @@ def _hydrate_from_dump(conn: sqlite3.Connection, dump_path: Path):
     _insert_table_data(conn, "inbox_email", dump.get("inbox_email", []))
     _insert_table_data(conn, "email_opportunity", dump.get("email_opportunity", []))
     _insert_table_data(conn, "agent_run", dump.get("agent_run", []))
+
+    _insert_table_data(conn, "opportunity_embedding", dump.get("opportunity_embedding", []))
+    _insert_table_data(conn, "opportunity_similarity", dump.get("opportunity_similarity", []))
 
     conn.commit()
 
