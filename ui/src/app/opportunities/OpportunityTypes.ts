@@ -1,5 +1,5 @@
 import {ReactNode} from 'react'
-import {BookOpen, BriefcaseBusiness, Folder, GraduationCap, LucideIcon, Users} from 'lucide-react'
+import {BookOpen, BriefcaseBusiness, Building2, Folder, GraduationCap, Hash, LucideIcon, Signpost, SquareUserRound, Users} from 'lucide-react'
 
 export interface OpportunityVersion {
   status: string
@@ -96,10 +96,11 @@ export const STATUS_GROUPS = [
   {key: 'closed', label: STATUS_LABELS.closed},
 ]
 
-export type JobGroupByMode = 'status' | 'organization_name' | 'score'
+export type JobGroupByMode = 'status' | 'organization_name' | 'score' | 'title'
 
 export interface JobGroupByOption {
   label: string
+  icon: LucideIcon
   groupBy?: (item: ApiOpportunity) => string
   groupByKeys?: string[]
   groupSortKey?: (key: string) => number
@@ -144,21 +145,32 @@ export const SCORE_GRADE_KEYS = Object.keys(SCORE_GRADE_ORDER)
 export const JOB_GROUP_BY_OPTIONS: Record<JobGroupByMode, JobGroupByOption> = {
   status: {
     label: 'Status',
-    hideEmptyGroups: true,
-  },
-  organization_name: {
-    label: 'Company',
-    groupBy: (item) => item.active_version.organization_name ?? '(Unknown)',
+    icon: Signpost,
     hideEmptyGroups: true,
   },
   score: {
     label: 'Score',
+    icon: Hash,
     groupBy: (item) => getScoreGrade(item.active_version.score),
     groupByKeys: SCORE_GRADE_KEYS,
     groupSortKey: (grade) => SCORE_GRADE_ORDER[grade] ?? 99,
     groupLabelDetail: getScoreGradeRange,
     hideEmptyGroups: false,
     collapseEmptyGroups: true,
+  },
+  organization_name: {
+    label: 'Company',
+    icon: Building2,
+    groupBy: (item) => item.active_version.organization_name ?? '(Unknown)',
+    hideEmptyGroups: true,
+  },
+  title: {
+    label: 'Title',
+    icon: SquareUserRound,
+    groupBy: (item) => item.active_version.title?.[0]?.toUpperCase() ?? '#',
+    groupByKeys: [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ', '#'],
+    groupSortKey: (key) => key === '#' ? 27 : key.charCodeAt(0) - 65,
+    hideEmptyGroups: true,
   },
 }
 
