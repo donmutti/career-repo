@@ -104,6 +104,7 @@ export const opportunities = {
   similar: (id: string) => apiFetch<unknown>(`/opportunities/${id}/similar`),
   dismissSimilar: (id: string, neighborId: string) => apiFetch<void>(`/opportunities/${id}/similar/${neighborId}`, {method: 'DELETE'}),
   absorb: (id: string, neighborId: string) => apiFetch<void>(`/opportunities/${id}/absorb/${neighborId}`, {method: 'POST'}),
+  setUrl: (id: string, url: string) => apiFetch<unknown>(`/opportunities/${id}/url`, {method: 'PATCH', body: JSON.stringify({url})}),
 }
 
 // Inbox

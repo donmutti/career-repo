@@ -161,6 +161,14 @@ export function useOpportunity(opportunityId: string, options: UseOpportunityOpt
     },
   })
 
+  const setUrlMutation = useMutation({
+    mutationFn: (url: string) => opApi.setUrl(opportunityId, url),
+    onSuccess: () => {
+      queryClient.invalidateQueries({queryKey: queryKeys.opportunity(opportunityId)})
+      queryClient.invalidateQueries({queryKey: queryKeys.opportunities})
+    },
+  })
+
   const dismissSimilarMutation = useMutation({
     mutationFn: (neighborId: string) => opApi.dismissSimilar(opportunityId, neighborId),
     onSuccess: () => queryClient.invalidateQueries({queryKey: queryKeys.opportunitySimilar(opportunityId)}),
@@ -213,6 +221,8 @@ export function useOpportunity(opportunityId: string, options: UseOpportunityOpt
     deleteAttachment: deleteAttachmentMutation.mutate,
     deleteOpportunity: deleteMutation.mutate,
     isDeletingOpportunity: deleteMutation.isPending,
+    setUrl: setUrlMutation.mutate,
+    isSettingUrl: setUrlMutation.isPending,
     similarOpportunities,
     dismissSimilar: dismissSimilarMutation.mutate,
     absorb: absorbMutation.mutate,

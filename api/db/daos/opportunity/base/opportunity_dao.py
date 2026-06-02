@@ -65,6 +65,14 @@ class OpportunityDAO(VersionedEntityDAO[Opportunity]):
         )
         self._save()
 
+    def set_url(self, opp_id: str, url: str) -> None:
+        """Update the URL of an opportunity."""
+        self._execute(
+            f"UPDATE {self.table_name} SET url = ? WHERE id = ?",
+            (url, opp_id),
+        )
+        self._save()
+
     def set_avatar_url(self, opp_id: str, avatar_url: str) -> None:
         """Save avatar URL for an opportunity."""
         self._execute(

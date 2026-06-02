@@ -1,4 +1,4 @@
-import {ExternalLink, Merge, MoreVertical, Paperclip, RefreshCw, Trash2} from 'lucide-react'
+import {ExternalLink, Link, Merge, MoreVertical, Paperclip, RefreshCw, Trash2} from 'lucide-react'
 import {Spinner} from '@/shared/controls/Spinner'
 import {DropdownButton} from '@/shared/controls/buttons/DropdownButton'
 import {IconButton} from '@/shared/controls/buttons/IconButton'
@@ -15,6 +15,7 @@ interface OpportunityMenuProps {
   isGeneratingCoverLetter: boolean
   onSource: () => void
   onGenerateCoverLetter: () => void
+  onSetUrl: () => void
   onMergeInto: () => void
   onDelete: () => void
 }
@@ -23,13 +24,14 @@ export function OpportunityMenu({
   opportunity,
   isChanging,
   isSourcing, isGeneratingCoverLetter,
-  onSource, onGenerateCoverLetter, onMergeInto, onDelete,
+  onSource, onGenerateCoverLetter, onSetUrl, onMergeInto, onDelete,
 }: OpportunityMenuProps) {
   const isJob = opportunity.type === 'job'
 
   const items = [
-    ...(opportunity.url ? [{label: 'Visit URL', icon: <ExternalLink size="sm"/>, onClick: () => window.open(opportunity.url!, '_blank', 'noreferrer')}] : []),
+    {label: 'Visit URL', icon: <ExternalLink size="sm"/>, onClick: () => window.open(opportunity.url!, '_blank', 'noreferrer'), disabled: !opportunity.url},
     {divider: true, label: '', onClick: () => {}},
+    {label: 'Set URL…', icon: <Link size={14}/>, onClick: onSetUrl, disabled: isChanging},
     {label: 'Re-score', icon: isSourcing ? <Spinner/> : <RefreshCw size="sm"/>, onClick: onSource, disabled: isChanging || isSourcing},
     ...(isJob ? [{
       label: 'Generate cover letter',

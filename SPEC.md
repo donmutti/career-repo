@@ -1015,6 +1015,7 @@ All endpoints prefixed with `/api`. Source lives in `api/routers/`.
 - `POST /opportunities/{id}/cover-letter` — generates cover letter for a Job opportunity; runs in background; 202
 - `GET /opportunities/{id}/similar` — returns list[OpportunitySimilarity] for undismissed near-duplicate pairs; 404 if opportunity not found
 - `DELETE /opportunities/{id}/similar/{neighbor_id}` — dismisses a near-duplicate candidate (sets dismissed_at); 404 if either opportunity not found; 204
+- `PATCH /opportunities/{id}/url` — updates the URL of an opportunity; body: `{url: string}`; 404 if not found; returns updated Opportunity
 - `POST /opportunities/{id}/absorb/{neighbor_id}` — merges neighbor into this opportunity, relinks comments, hard-deletes neighbor, deletes similarity row; 404 if either not found; 409 if pair is already dismissed; 204
 - `GET /attachments/{id}/download` — downloads attachment file
 
@@ -1701,8 +1702,10 @@ Type list pages: `JobListPage`, `ProjectListPage`, `EducationListPage`, `Network
 
 `OpportunityMenu` — `DropdownButton` with `IconButton` trigger:
 
-- Open URL in browser
-- Score / Re-score (disabled while sourcing)
+- Visit URL (disabled when no URL set)
+- (divider)
+- Set URL… (opens `ValueDialog` with URL input pre-filled; disabled while sourcing) — calls `PATCH /opportunities/{id}/url`
+- Re-score (disabled while sourcing)
 - Generate cover letter (Job only; disabled while sourcing or generating)
 - (divider)
 - Merge into… (opens `MergeIntoDialog`)

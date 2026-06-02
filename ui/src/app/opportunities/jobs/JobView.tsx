@@ -9,6 +9,7 @@ import {TextEdit} from '@/shared/controls/edits/TextEdit'
 import {InlineEdit} from '@/shared/controls/edits/InlineEdit'
 import {ConfirmationDialog} from '@/shared/controls/dialogs/ConfirmationDialog'
 import {ScoreDialog} from '@/shared/controls/dialogs/ScoreDialog'
+import {ValueDialog} from '@/shared/controls/dialogs/ValueDialog'
 import {GroupedListView} from '@/shared/controls/views/GroupedListView'
 import {GroupView} from '@/shared/controls/views/GroupView'
 import {ListView} from '@/shared/controls/views/ListView'
@@ -33,6 +34,8 @@ export function JobView({opportunityId}: JobViewProps) {
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [mergeIntoDialogOpen, setMergeIntoDialogOpen] = useState(false)
+  const [setUrlDialogOpen, setSetUrlDialogOpen] = useState(false)
+  const [urlInput, setUrlInput] = useState('')
   const [addingNote, setAddingNote] = useState(false)
   const [descriptionEditing, setDescriptionEditing] = useState(false)
   const [scoreDialogOpen, setScoreDialogOpen] = useState(false)
@@ -49,6 +52,7 @@ export function JobView({opportunityId}: JobViewProps) {
     deleteOpportunity, isDeletingOpportunity,
     similarOpportunities, absorb, isAbsorbing,
     mergeInto, isMergingInto,
+    setUrl, isSettingUrl,
   } = useOpportunity(opportunityId, {
 
     onDeleted: () => {
@@ -199,6 +203,7 @@ export function JobView({opportunityId}: JobViewProps) {
               isGeneratingCoverLetter={isGeneratingCoverLetter}
               onSource={() => source()}
               onGenerateCoverLetter={() => generateCoverLetter()}
+              onSetUrl={() => { setUrlInput(opportunity.url ?? ''); setSetUrlDialogOpen(true) }}
               onMergeInto={() => setMergeIntoDialogOpen(true)}
               onDelete={() => setDeleteDialogOpen(true)}
             />
@@ -333,6 +338,29 @@ export function JobView({opportunityId}: JobViewProps) {
         url={opportunity.url}
         onRescore={() => source()}
       />
+
+      {/* Set URL dialog */}
+      <ValueDialog
+        open={setUrlDialogOpen}
+        onOpenChange={setSetUrlDialogOpen}
+        title="Set URL"
+        submitLabel="Save"
+        isSubmitting={isSettingUrl}
+        onSubmit={() => { setUrl(urlInput); setSetUrlDialogOpen(false) }}
+      >
+        <div className="flex flex-col gap-1.5">
+          <label>URL</label>
+          <input
+            ref={el => el && setTimeout(() => el.focus(), 0)}
+            type="url"
+            placeholder="https://..."
+            value={urlInput}
+            onChange={e => setUrlInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { setUrl(urlInput); setSetUrlDialogOpen(false) } }}
+            className="w-full"
+          />
+        </div>
+      </ValueDialog>
 
       {/* Merge into dialog */}
       <MergeIntoDialog

@@ -5,6 +5,7 @@ from datetime import date
 from typing import List
 
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 from fastapi.responses import FileResponse
 
 from ....config import ROOT, get_attachment_path
@@ -132,6 +133,19 @@ def update_opportunity(opportunity_id: str, request: UpdateOpportunityRequestDto
         "active_version": opportunity.active_version.model_copy(update=typed)
     })
     return opp_dao.update(opportunity_id, enriched.active_version)
+
+
+class SetUrlRequest(BaseModel):
+    url: str
+
+@router.patch("/{opportunity_id}/url", response_model=Opportunity)
+def set_opportunity_url(opportunity_id: str, request: SetUrlRequest):
+    """Update the URL of an opportunity."""
+    opportunity = opp_dao.get(opportunity_id)
+    if not opportunity:
+        raise HTTPException(status_code=404, detail="Opportunity not found")
+    opp_dao.set_url(opportunity_id, request.url.strip())
+    return opp_dao.get(opportunity_id)
 
 
 @router.delete("/{opportunity_id}", status_code=204)
