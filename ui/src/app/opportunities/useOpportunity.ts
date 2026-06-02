@@ -180,6 +180,19 @@ export function useOpportunity(opportunityId: string, options: UseOpportunityOpt
     },
   })
 
+  // "Merge into": current opp is the duplicate, canonicalId is the target
+  const mergeIntoMutation = useMutation({
+    mutationFn: (canonicalId: string) => opApi.absorb(canonicalId, opportunityId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({queryKey: queryKeys.opportunities})
+      queryClient.getQueryCache().findAll({queryKey: ['opportunities']}).forEach(query => {
+        if (query.queryKey.length === 3 && query.queryKey[2] === 'similar') {
+          queryClient.invalidateQueries({queryKey: query.queryKey})
+        }
+      })
+    },
+  })
+
   return {
     opportunity,
     isLoading,
@@ -204,5 +217,7 @@ export function useOpportunity(opportunityId: string, options: UseOpportunityOpt
     dismissSimilar: dismissSimilarMutation.mutate,
     absorb: absorbMutation.mutate,
     isAbsorbing: absorbMutation.isPending,
+    mergeInto: mergeIntoMutation.mutate,
+    isMergingInto: mergeIntoMutation.isPending,
   }
 }

@@ -16,8 +16,10 @@ import {ShowMoreView} from '@/shared/controls/views/ShowMoreView'
 import {CommentRow} from '@/app/opportunities/CommentRow'
 import {AttachmentRow} from '@/app/opportunities/AttachmentRow'
 import {SimilarOpportunityRow} from '@/app/opportunities/SimilarOpportunityRow'
+import {MergeIntoDialog} from '@/app/opportunities/MergeIntoDialog'
 import {ScoreBadge} from '@/shared/controls/buttons/ScoreBadge'
 import {Attachment, Comment, OpportunitySimilarity, STATUS_GROUPS} from '@/app/opportunities/OpportunityTypes'
+import {useOpportunities} from '@/app/opportunities/useOpportunities'
 import {formatDuration, formatPay} from '@/shared/utils/FormatUtils'
 import {DateLabel} from '@/shared/controls/DateLabel'
 import {IconButton} from '@/shared/controls/buttons/IconButton'
@@ -30,6 +32,7 @@ export function JobView({opportunityId}: JobViewProps) {
   const navigate = useNavigate()
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [mergeIntoDialogOpen, setMergeIntoDialogOpen] = useState(false)
   const [addingNote, setAddingNote] = useState(false)
   const [descriptionEditing, setDescriptionEditing] = useState(false)
   const [scoreDialogOpen, setScoreDialogOpen] = useState(false)
@@ -45,6 +48,7 @@ export function JobView({opportunityId}: JobViewProps) {
     deleteAttachment,
     deleteOpportunity, isDeletingOpportunity,
     similarOpportunities, absorb, isAbsorbing,
+    mergeInto, isMergingInto,
   } = useOpportunity(opportunityId, {
 
     onDeleted: () => {
@@ -90,6 +94,9 @@ export function JobView({opportunityId}: JobViewProps) {
     }
     return () => { if (coverLetterTimerRef.current) clearInterval(coverLetterTimerRef.current) }
   }, [isGeneratingCoverLetter, coverLetterRunCreatedAt])
+
+  const {opportunities} = useOpportunities()
+  const jobs = opportunities.filter(o => o.type === 'job')
 
   if (isLoading) {
     return (
@@ -192,6 +199,7 @@ export function JobView({opportunityId}: JobViewProps) {
               isGeneratingCoverLetter={isGeneratingCoverLetter}
               onSource={() => source()}
               onGenerateCoverLetter={() => generateCoverLetter()}
+              onMergeInto={() => setMergeIntoDialogOpen(true)}
               onDelete={() => setDeleteDialogOpen(true)}
             />
           </div>
@@ -324,6 +332,17 @@ export function JobView({opportunityId}: JobViewProps) {
         organizationName={activeVersion.organization_name}
         url={opportunity.url}
         onRescore={() => source()}
+      />
+
+      {/* Merge into dialog */}
+      <MergeIntoDialog
+        open={mergeIntoDialogOpen}
+        onOpenChange={setMergeIntoDialogOpen}
+        opportunityId={opportunityId}
+        jobs={jobs}
+        similarOpportunities={similarOpportunities as OpportunitySimilarity[]}
+        onMerge={(canonicalId) => mergeInto(canonicalId)}
+        isMerging={isMergingInto}
       />
 
       {/* Delete dialog */}

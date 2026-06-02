@@ -18,7 +18,7 @@ export function BaseDialog({open, onOpenChange, title, width = 'w-[440px]', onSu
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-[100]" style={{backgroundColor: 'color-mix(in srgb, var(--color-panel-black) 40%, transparent)'}} onClick={e => e.stopPropagation()}/>
         <Dialog.Content
-          className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-panel-white rounded-lg ${width} max-w-[90vw] z-[101] flex flex-col shade-lg`}
+          className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-panel-white rounded-lg ${width} max-w-[90vw] z-[101] flex flex-col shade-2xl`}
           onClick={e => e.stopPropagation()}
           onOpenAutoFocus={e => e.preventDefault()}
           onInteractOutside={e => {
