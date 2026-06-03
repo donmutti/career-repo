@@ -25,7 +25,7 @@ export type OpportunityContext = {
 
 export default function OpportunityPage() {
   const navigate = useNavigate()
-  const [navWidth, setNavWidth] = useState(() => LocalStorageUtils.get('pane.opportunities.filter', 200))
+  const [navWidth, setNavWidth] = useState(() => LocalStorageUtils.get('pane.opportunities.filter', 300))
   const [timeWindow, setTimeWindow] = useState(() => LocalStorageUtils.get('pane.opportunities.timeWindow', 'all'))
   const [activeType, setActiveType] = useState<string | null>(null)
 
