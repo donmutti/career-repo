@@ -65,6 +65,7 @@ class InboxEmailDAO(BaseEntityDAO[InboxEmail]):
         """Return email counts and all_sorted flags for standard time windows."""
         cursor = self._execute("""
             select
+                count(*) as "all",
                 sum(case when date(received_at) = date(?) then 1 else 0 end) as today,
                 sum(case when date(received_at) = date(?, '-1 day') then 1 else 0 end) as yesterday,
                 sum(case when date(received_at) >= date(?, '-6 days') then 1 else 0 end) as last7,
@@ -97,11 +98,14 @@ class InboxEmailDAO(BaseEntityDAO[InboxEmail]):
         last7_dates = [(d - timedelta(days=i)).isoformat() for i in range(7)]
         last30_dates = [(d - timedelta(days=i)).isoformat() for i in range(30)]
 
+        all_dates = [r["rdate"] for r in sorted_rows]
         return {
+            "all": row["all"] or 0,
             "today": row["today"] or 0,
             "yesterday": row["yesterday"] or 0,
             "last7": row["last7"] or 0,
             "last30": row["last30"] or 0,
+            "all_all_sorted": all_sorted_for(all_dates),
             "today_all_sorted": all_sorted_for(today_dates),
             "yesterday_all_sorted": all_sorted_for(yesterday_dates),
             "last7_all_sorted": all_sorted_for(last7_dates),

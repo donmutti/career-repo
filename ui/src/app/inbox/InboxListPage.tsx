@@ -11,7 +11,7 @@ import {IconButton} from '@/shared/controls/buttons/IconButton'
 import {ConfirmationDialog} from '@/shared/controls/dialogs/ConfirmationDialog'
 import {InboxEmailRow} from './InboxEmailRow'
 import {InboxEmailView} from './InboxEmailView'
-import {TIME_WINDOWS} from './InboxTypes'
+import {TIME_WINDOWS, getDateRange} from '@/shared/controls/views/TimeWindowTypes'
 import {inbox as inboxApi} from '@/services/client'
 import {queryKeys} from '@/services/queryKeys'
 import {pluralize} from '@/shared/utils/FormatUtils'
@@ -24,22 +24,6 @@ interface InboxEmail {
   received_at: string
 }
 
-function getDateRange(windowKey: string): {from_date: string; to_date: string} {
-  const today = new Date()
-  const fmt = (d: Date) => d.toISOString().slice(0, 10)
-  const daysAgo = (n: number) => {
-    const d = new Date(today)
-    d.setDate(d.getDate() - n)
-    return d
-  }
-  switch (windowKey) {
-    case 'today':     return {from_date: fmt(today), to_date: fmt(today)}
-    case 'yesterday': return {from_date: fmt(daysAgo(1)), to_date: fmt(daysAgo(1))}
-    case 'last7':     return {from_date: fmt(daysAgo(6)), to_date: fmt(today)}
-    case 'last30':    return {from_date: fmt(daysAgo(29)), to_date: fmt(today)}
-    default:          return {from_date: fmt(today), to_date: fmt(today)}
-  }
-}
 
 export default function InboxListPage() {
   const {id: selectedId} = useParams<{id: string}>()

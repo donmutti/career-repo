@@ -1,7 +1,7 @@
 import {LucideIcon} from 'lucide-react'
 import {formatCount} from '@/shared/utils/FormatUtils'
 
-interface InboxTypeRowProps {
+interface TimeWindowRowProps {
   label: string
   icon: LucideIcon
   selected: boolean
@@ -10,8 +10,8 @@ interface InboxTypeRowProps {
   allSorted?: boolean
 }
 
-export function InboxTypeRow({label, icon: Icon, selected, onClick, count, allSorted}: InboxTypeRowProps) {
-  const hasUnsorted = count != null && count > 0 && !allSorted
+export function TimeWindowRow({label, icon: Icon, selected, onClick, count, allSorted}: TimeWindowRowProps) {
+  const hasUnsorted = count != null && count > 0 && allSorted === false
 
   return (
     <button

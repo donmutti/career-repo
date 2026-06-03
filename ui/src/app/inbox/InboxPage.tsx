@@ -5,11 +5,11 @@ import {LocalStorageUtils} from '@/shared/utils/LocalStorageUtils'
 import {MoreVertical, RefreshCw, X} from 'lucide-react'
 import {PaneBody, PaneHeader, PaneResizeHandle, Panes} from '@/shared/controls/panes/Panes'
 import {ListView} from '@/shared/controls/views/ListView'
-import {InboxTypeRow} from './InboxTypeRow'
+import {TimeWindowRow} from '@/shared/controls/views/TimeWindowRow'
 import {IconButton} from '@/shared/controls/buttons/IconButton'
 import {DropdownButton} from '@/shared/controls/buttons/DropdownButton'
 import {ConfirmationDialog} from '@/shared/controls/dialogs/ConfirmationDialog'
-import {TIME_WINDOWS} from './InboxTypes'
+import {TIME_WINDOWS} from '@/shared/controls/views/TimeWindowTypes'
 import {inbox as inboxApi} from '@/services/client'
 import {queryKeys} from '@/services/queryKeys'
 import {queryClient} from '@/services/queryClient'
@@ -95,7 +95,7 @@ export default function InboxPage() {
               items={TIME_WINDOWS}
               getItemKey={(w) => w.key}
               renderItem={(w) => (
-                <InboxTypeRow
+                <TimeWindowRow
                   key={w.key}
                   label={w.label}
                   icon={w.icon}

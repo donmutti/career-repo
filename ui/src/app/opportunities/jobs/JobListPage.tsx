@@ -1,8 +1,10 @@
 import {useState} from 'react'
-import {useNavigate, useParams} from 'react-router'
+import {useNavigate, useOutletContext, useParams} from 'react-router'
 import {ArrowDownUp, Briefcase, LayoutList} from 'lucide-react'
 import {LocalStorageUtils} from '@/shared/utils/LocalStorageUtils'
 import {ApiOpportunity, JOB_GROUP_BY_OPTIONS, JobGroupByMode, STATUS_LABELS} from '@/app/opportunities/OpportunityTypes'
+import {filterByTimeWindow} from '@/shared/controls/views/TimeWindowTypes'
+import type {OpportunityContext} from '@/app/opportunities/OpportunityPage'
 import {Spinner} from '@/shared/controls/Spinner'
 import {Pane, PaneBody, PaneHeader, PaneResizeHandle} from '@/shared/controls/panes/Panes'
 import {GroupedListView} from '@/shared/controls/views/GroupedListView'
@@ -22,9 +24,10 @@ export default function JobListPage() {
   const [listWidth, setListWidth] = useState(() => LocalStorageUtils.get('pane.opportunities.list', 550))
   const [groupByMode, setGroupByMode] = useState<JobGroupByMode>(() => LocalStorageUtils.get('pane.jobs.groupBy', 'status'))
 
+  const {timeWindow} = useOutletContext<OpportunityContext>()
   const {opportunities, isLoading} = useOpportunities()
 
-  const jobs = opportunities.filter(o => o.type === 'job')
+  const jobs = filterByTimeWindow(opportunities.filter(o => o.type === 'job'), timeWindow)
 
   const byStatus = jobs.reduce<Record<string, ApiOpportunity[]>>((acc, o) => {
     ;(acc[o.active_version.status] ??= []).push(o)
