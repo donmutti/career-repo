@@ -1,4 +1,4 @@
-import {useState} from 'react'
+import {useState, useEffect} from 'react'
 import {useNavigate, useOutletContext, useParams} from 'react-router'
 import {ArrowDownUp, Briefcase, LayoutList} from 'lucide-react'
 import {LocalStorageUtils} from '@/shared/utils/LocalStorageUtils'
@@ -24,7 +24,12 @@ export default function JobListPage() {
   const [listWidth, setListWidth] = useState(() => LocalStorageUtils.get('pane.opportunities.list', 550))
   const [groupByMode, setGroupByMode] = useState<JobGroupByMode>(() => LocalStorageUtils.get('pane.jobs.groupBy', 'status'))
 
-  const {timeWindow} = useOutletContext<OpportunityContext>()
+  const {timeWindow, setActiveType} = useOutletContext<OpportunityContext>()
+
+  useEffect(() => {
+    setActiveType('job')
+    return () => setActiveType(null)
+  }, [setActiveType])
   const {opportunities, isLoading} = useOpportunities()
 
   const jobs = filterByTimeWindow(opportunities.filter(o => o.type === 'job'), timeWindow)

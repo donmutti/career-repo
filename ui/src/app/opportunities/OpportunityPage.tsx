@@ -2,7 +2,7 @@ import {useState, useMemo} from 'react'
 import {LocalStorageUtils} from '@/shared/utils/LocalStorageUtils'
 import {OPP_TYPE_LABELS, OPP_TYPES} from '@/app/opportunities/OpportunityTypes'
 import {filterByTimeWindow, TIME_WINDOWS} from '@/shared/controls/views/TimeWindowTypes'
-import {Outlet, useNavigate, useMatch} from 'react-router'
+import {Outlet, useNavigate} from 'react-router'
 import {Panes, PaneBody, PaneHeader, PaneResizeHandle} from '@/shared/controls/panes/Panes'
 import {ListView} from '@/shared/controls/views/ListView'
 import {OpportunityTypeRow} from '@/app/opportunities/OpportunityTypeRow'
@@ -20,12 +20,14 @@ const TYPE_ROUTES: Record<string, string> = {
 export type OpportunityContext = {
   timeWindow: string
   setTimeWindow: (w: string) => void
+  setActiveType: (type: string | null) => void
 }
 
 export default function OpportunityPage() {
   const navigate = useNavigate()
   const [navWidth, setNavWidth] = useState(() => LocalStorageUtils.get('pane.opportunities.filter', 200))
   const [timeWindow, setTimeWindow] = useState(() => LocalStorageUtils.get('pane.opportunities.timeWindow', 'all'))
+  const [activeType, setActiveType] = useState<string | null>(null)
 
   const {opportunities} = useOpportunities()
 
@@ -42,16 +44,13 @@ export default function OpportunityPage() {
     [windowedOpportunities],
   )
 
-  const windowCounts = useMemo(
-    () => TIME_WINDOWS.reduce<Record<string, number>>((acc, w) => {
-      acc[w.key] = w.key === 'all' ? opportunities.length : filterByTimeWindow(opportunities, w.key).length
+  const windowCounts = useMemo(() => {
+    const base = activeType ? opportunities.filter(o => o.type === activeType) : opportunities
+    return TIME_WINDOWS.reduce<Record<string, number>>((acc, w) => {
+      acc[w.key] = w.key === 'all' ? base.length : filterByTimeWindow(base, w.key).length
       return acc
-    }, {}),
-    [opportunities],
-  )
-
-  const matchType = useMatch('/opportunities/:type/*')
-  const activeRoute = matchType?.params.type ?? null
+    }, {})
+  }, [opportunities, activeType])
 
   return (
     <Panes className="bg-panel-white">
@@ -86,7 +85,7 @@ export default function OpportunityPage() {
                   type={type}
                   label={OPP_TYPE_LABELS[type] ?? type}
                   count={typeCounts[type] ?? 0}
-                  selected={TYPE_ROUTES[type] === activeRoute}
+                  selected={activeType === type}
                   onClick={() => navigate(`/opportunities/${TYPE_ROUTES[type]}`)}
                 />
               )}
@@ -101,7 +100,7 @@ export default function OpportunityPage() {
         return n
       })}/>
 
-      <Outlet context={{timeWindow, setTimeWindow} satisfies OpportunityContext}/>
+      <Outlet context={{timeWindow, setTimeWindow, setActiveType} satisfies OpportunityContext}/>
     </Panes>
   )
 }
