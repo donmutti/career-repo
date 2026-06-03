@@ -41,6 +41,15 @@ def _ensure_migration_table(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def _mark_all_applied(conn: sqlite3.Connection) -> None:
+    """Mark all migration files as applied without running them (used after hydration from legacy dump)."""
+    for path in sorted(MIGRATIONS_DIR.glob("*.sql")):
+        conn.execute(
+            "INSERT OR IGNORE INTO schema_migration (name) VALUES (?)", (path.name,)
+        )
+    conn.commit()
+
+
 def _get_applied(conn: sqlite3.Connection) -> set[str]:
     rows = conn.execute("SELECT name FROM schema_migration").fetchall()
     return {row[0] for row in rows}
