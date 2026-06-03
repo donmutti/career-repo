@@ -134,7 +134,6 @@ export function JobView({opportunityId}: JobViewProps) {
           steps={STATUS_GROUPS}
           value={activeVersion.status}
           onChange={(key) => patch({status: key})}
-          disabled={isChanging}
         />
 
         {/* Evaluation + Score */}
