@@ -932,9 +932,12 @@ ClaudeService:
 - `async parse_work_experience_from_resume(resume_text, run_id?): ClaudeResult[dict]` — 120s timeout
 - `async generate_markdown_attachment(attachment_type, opportunity, profile?, work_experiences?, run_id?): ClaudeResult[str]` — 180s timeout
 - `async stream_to_client(command_path, payload, opportunity_id?): AsyncIterator[StreamEvent]` — 600s timeout
+- `create_task(run_id, coro): asyncio.Task` — registers an arbitrary coroutine in the task registry under `run_id` and starts it; used for long-running scan loops that are not direct `_run_stream()` calls but still need to be cancellable
 - `async cancel(run_id): None`
 
 All named methods (`scan_inbox`, `extract_opportunities`, `source_opportunity`, `parse_work_experience_from_resume`, `generate_markdown_attachment`) delegate to `_run_stream()`: they consume the full event stream, concatenate `text` events into a single assistant string, read the final `done` event for cost/duration/model/run_id, parse the assistant string per the method's expected output type, and return `ClaudeResult`. They do not expose events to the caller.
+
+`create_task(run_id, coro)` wraps the coroutine so the task is removed from the registry on completion, then starts it via `asyncio.create_task`.
 
 `cancel(run_id)` looks up the task in the registry and calls `task.cancel()`; the SDK aborts the in-flight request. Used by `DELETE /agent-runs/{id}`.
 
@@ -1044,7 +1047,7 @@ All endpoints prefixed with `/api`. Source lives in `api/routers/`.
 - `GET /agent-runs` — lists all agent runs, newest first
 - `GET /agent-runs/{id}` — returns agent run metadata and status
 - `POST /agent-runs` — starts agent run; streams output as SSE; each line is a `StreamEvent` JSON object; stream ends with exactly one terminal event: `done`, `cancelled`, or `error`; absence of a terminal event before connection close indicates abnormal termination
-- `DELETE /agent-runs/{id}` — cancels active run; aborts in-flight SDK request
+- `DELETE /agent-runs/{id}` — cancels active run; aborts in-flight SDK request via `ClaudeService.cancel()`; marks the run `cancelled` in the DB
 
 ---
 
@@ -1879,7 +1882,7 @@ Scan inbox:
 - UI shows "Preparing scan… Xs" while `preparing` is true, then "Scanning {current}/{total} emails for Xs…" once preflight completes.
 - System scans in batches of `scan_batch_size`, paginating via Gmail `pageToken`, until no more results. After each batch: deduplicates by `external_id`, stores new `InboxEmail` records, creates `EmailOpportunity` stubs (`status: pending`, `organization_name` populated from scan output), and updates `AgentRun.meta.current`. Before each batch, checks run status — exits immediately if cancelled.
 - On completion, scan run is marked `completed`; on any exception, marked `failed`. `last_scanned_at` is derived from the most recent completed scan run's `completed_at`.
-- Each batch is a separate Claude invocation; the scan-level `AgentRun` is managed directly by the server, not delegated to the Claude SDK.
+- Each batch is a separate Claude invocation; the scan-level `AgentRun` is managed directly by the server, not delegated to the Claude SDK. The scan coroutine is started via `ClaudeService.create_task(run_id, coro)` so it participates in the shared task registry and can be cancelled via `DELETE /agent-runs/{id}`.
 - Scan parameters are configured in `config.yml` under `inbox`: `scan_days`, `scan_batch_size`, `scan_keywords`.
 - Inbox page shows newly surfaced emails; attention dot appears on emails and sidebar until triaged.
 

@@ -109,6 +109,18 @@ class ClaudeService:
         async for event in self._run_stream(command_path, payload, opportunity_id, timeout=600.0):
             yield event
 
+    def create_task(self, run_id: str, coro) -> asyncio.Task:
+        """Register and start a coroutine as a tracked task keyed to run_id."""
+        async def _wrapper():
+            try:
+                await coro
+            finally:
+                self._tasks.pop(run_id, None)
+
+        task = asyncio.create_task(_wrapper())
+        self._tasks[run_id] = task
+        return task
+
     async def cancel(self, run_id: str) -> None:
         """Cancel an active run by cancelling its asyncio task."""
         task = self._tasks.get(run_id)

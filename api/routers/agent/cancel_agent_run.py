@@ -20,6 +20,7 @@ async def cancel_agent_run(run_id: str):
 
     if run.status == "running":
         await claude.cancel(run_id)
+        agent_run_dao.cancel(run_id)
         # Stamp sourcing_completed_at if this run was a sourcing run
         if run.opportunity_id:
             opp = opp_dao.get(run.opportunity_id)

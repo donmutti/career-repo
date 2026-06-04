@@ -148,5 +148,5 @@ async def scan_inbox():
         except Exception as e:
             agent_run_dao.fail(run.id, str(e))
 
-    asyncio.create_task(_run_scan())
+    claude.create_task(run.id, _run_scan())
     return {"run_id": run.id}
