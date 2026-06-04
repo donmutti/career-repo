@@ -350,7 +350,7 @@ export function JobView({opportunityId}: JobViewProps) {
         <div className="flex flex-col gap-1.5">
           <label>URL</label>
           <input
-            ref={el => el && setTimeout(() => el.focus(), 0)}
+            ref={el => { el && setTimeout(() => el.focus(), 0) }}
             type="url"
             placeholder="https://..."
             value={urlInput}
