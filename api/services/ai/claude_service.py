@@ -4,7 +4,7 @@ import asyncio
 import json
 import time
 from pathlib import Path
-from typing import Any, AsyncGenerator, Dict, List, Optional, TypeVar
+from typing import Any, AsyncGenerator, Callable, Coroutine, Dict, List, Optional, TypeVar
 
 from pydantic import BaseModel
 
@@ -23,6 +23,35 @@ _TOOL_ALLOWLIST: Dict[str, List[str]] = {
 }
 
 T = TypeVar("T")
+
+
+class AgentRunHandle:
+    """Injected into managed coroutines started via ClaudeService.create_task().
+
+    Provides a clean interface for AgentRun lifecycle — replacing direct DAO
+    calls inside multi-step orchestration loops.
+    """
+
+    def __init__(self, run_id: str, dao: AgentRunDAO) -> None:
+        self.run_id = run_id
+        self._dao = dao
+        self._terminal = False
+
+    def set_meta(self, meta: dict) -> None:
+        self._dao.set_meta(self.run_id, meta)
+
+    def is_cancelled(self) -> bool:
+        """Return True if the run has been cancelled (or record is missing)."""
+        run = self._dao.get(self.run_id)
+        return run is None or run.status != "running"
+
+    def complete(self, output: str = "") -> None:
+        self._terminal = True
+        self._dao.complete(self.run_id, output)
+
+    def fail(self, message: str) -> None:
+        self._terminal = True
+        self._dao.fail(self.run_id, message)
 
 
 class ClaudeError(Exception):
@@ -109,11 +138,21 @@ class ClaudeService:
         async for event in self._run_stream(command_path, payload, opportunity_id, timeout=600.0):
             yield event
 
-    def create_task(self, run_id: str, coro) -> asyncio.Task:
-        """Register and start a coroutine as a tracked task keyed to run_id."""
+    def create_task(self, run_id: str, coro_factory: Callable[["AgentRunHandle"], Coroutine]) -> asyncio.Task:
+        """Register and start a managed coroutine keyed to run_id.
+
+        coro_factory receives an AgentRunHandle and returns a coroutine. The wrapper
+        marks the run failed if it is cancelled before the coroutine marks it
+        terminal itself.
+        """
+        ctx = AgentRunHandle(run_id, self._dao)
+
         async def _wrapper():
             try:
-                await coro
+                await coro_factory(ctx)
+            except asyncio.CancelledError:
+                if not ctx._terminal:
+                    ctx.fail("Cancelled")
             finally:
                 self._tasks.pop(run_id, None)
 
