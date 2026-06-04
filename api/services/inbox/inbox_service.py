@@ -44,20 +44,20 @@ class InboxService:
         claude.create_task(run_id, self._run_scan)
 
     async def _run_scan(self, ctx: AgentRunHandle) -> None:
-        # Preflight: get total count
+        # Probe: get total count
         try:
             scan_query = self.build_scan_query()
-            logger.info("Starting preflight: scan_days=%d query=%r", get_inbox_scan_days(), scan_query)
-            preflight_result = await claude.inbox_preflight(scan_query)
-            preflight = preflight_result.output
-            total = int(preflight.get("total", 0))
+            logger.info("Starting probe: scan_days=%d query=%r", get_inbox_scan_days(), scan_query)
+            probe_result = await claude.generate("inbox-preflight", {"query": scan_query}, timeout=300.0)
+            probe = probe_result.output
+            total = int(probe.get("total", 0))
         except (ClaudeError, Exception) as e:
-            ctx.fail(f"Preflight failed: {e}")
+            ctx.fail(f"Probe failed: {e}")
             return
 
         batch_size = get_inbox_scan_batch_size()
         ctx.set_meta({"current": min(batch_size, total), "total": total, "preparing": False})
-        logger.info("Preflight complete: total=%d query=%r", total, scan_query)
+        logger.info("Probe complete: total=%d query=%r", total, scan_query)
 
         # Batch scan loop
         page_token = None
@@ -70,10 +70,10 @@ class InboxService:
             batch = None
             for attempt in range(3):
                 try:
-                    result = await claude.scan_inbox(
-                        query=scan_query,
-                        page_token=page_token,
-                        max_results=get_inbox_scan_batch_size(),
+                    result = await claude.generate(
+                        "scan-inbox",
+                        {"query": scan_query, "page_token": page_token, "max_results": get_inbox_scan_batch_size()},
+                        timeout=300.0,
                     )
                     if isinstance(result.output, dict):
                         batch = result.output

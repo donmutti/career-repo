@@ -9,7 +9,6 @@ from typing import Any, AsyncGenerator, Callable, Coroutine, Dict, List, Optiona
 from pydantic import BaseModel
 
 from api.db.daos.agent.agent_run_dao import AgentRunDAO
-from api.models.entities import Opportunity, Profile
 
 _COMMANDS_DIR = Path(__file__).parent / "commands"
 
@@ -59,7 +58,7 @@ class ClaudeError(Exception):
 
 
 class ClaudeResult(BaseModel):
-    """Return envelope for collected (non-streaming) calls."""
+    """Return envelope for generate() calls."""
 
     output: Any
     cost_usd: float
@@ -76,66 +75,78 @@ class StreamEvent(BaseModel):
 
 
 class ClaudeService:
-    """Invokes Claude via the claude-agent-sdk for AI operations."""
+    """Domain-agnostic Claude agent SDK runner.
+
+    Public surface:
+      generate()        — run an agent to completion, return ClaudeResult
+      generate_stream() — run an agent, yield StreamEvents
+      create_task()     — run a managed multi-step coroutine
+      cancel()          — cancel an active run
+    """
 
     def __init__(self, agent_run_dao: AgentRunDAO):
         self._dao = agent_run_dao
         self._tasks: Dict[str, asyncio.Task] = {}
 
     # ------------------------------------------------------------------
-    # Public named methods
+    # Public API
     # ------------------------------------------------------------------
 
-    async def inbox_preflight(self, query: str) -> ClaudeResult:
-        command_path = _COMMANDS_DIR / "inbox-preflight.md"
-        return await self._collect(command_path, {"query": query}, timeout=300.0)
-
-    async def scan_inbox(self, query: str, page_token: Optional[str] = None, max_results: int = 10) -> ClaudeResult:
-        command_path = _COMMANDS_DIR / "scan-inbox.md"
-        payload: Dict[str, Any] = {"query": query, "page_token": page_token, "max_results": max_results}
-        return await self._collect(command_path, payload, timeout=300.0)
-
-    async def extract_opportunities(self, email_content: str) -> ClaudeResult:
-        command_path = _COMMANDS_DIR / "extract-opportunity-from-email.md"
-        return await self._collect(command_path, email_content, timeout=120.0)
-
-    async def source_opportunity(self, opportunity: Opportunity, profile: Optional[Profile] = None, work_experiences: Optional[List] = None, run_id: Optional[str] = None) -> ClaudeResult:
-        command_path = _COMMANDS_DIR / "source-opportunity.md"
-        payload = {
-            "opportunity": opportunity.model_dump(mode="json"),
-            "profile": profile.model_dump(mode="json") if profile else None,
-            "work_experiences": [we.model_dump(mode="json") for we in work_experiences] if work_experiences else [],
-        }
-        return await self._collect(command_path, payload, existing_run_id=run_id, timeout=180.0)
-
-    async def parse_work_experience_from_resume(self, resume_text: str, run_id: Optional[str] = None) -> ClaudeResult:
-        command_path = _COMMANDS_DIR / "parse-work-experience-from-resume.md"
-        return await self._collect(command_path, resume_text, existing_run_id=run_id, timeout=120.0)
-
-    async def generate_markdown_attachment(
-        self,
-        attachment_type: str,
-        opportunity: Opportunity,
-        profile: Optional[Profile] = None,
-        work_experiences: Optional[List] = None,
-        run_id: Optional[str] = None,
+    async def generate(
+            self,
+            agent: str,
+            payload: Any,
+            opportunity_id: Optional[str] = None,
+            raw_text: bool = False,
+            run_id: Optional[str] = None,
+            timeout: float = 300.0,
     ) -> ClaudeResult:
-        command_path = _COMMANDS_DIR / "generate-attachment.md"
-        payload = {
-            "attachment_type": attachment_type,
-            "opportunity": opportunity.model_dump(mode="json"),
-            "profile": profile.model_dump(mode="json") if profile else None,
-            "work_experiences": [we.model_dump(mode="json") for we in work_experiences] if work_experiences else [],
-        }
-        return await self._collect(command_path, payload, raw_text=True, existing_run_id=run_id, timeout=180.0)
+        """Run an agent to completion and return a ClaudeResult."""
+        command_path = self._resolve(agent)
+        text_chunks: List[str] = []
+        done_data: Dict[str, Any] = {}
 
-    async def stream_to_client(
-        self,
-        command_path: Path,
-        payload: Any,
-        opportunity_id: Optional[str] = None,
+        async for event in self._generate_stream(command_path, payload, opportunity_id, existing_run_id=run_id, timeout=timeout):
+            if event.type == "text":
+                text_chunks.append(str(event.data))
+            elif event.type == "done":
+                done_data = event.data if isinstance(event.data, dict) else {}
+            elif event.type in ("error", "cancelled"):
+                raise ClaudeError(str(event.data))
+
+        assistant_text = "".join(text_chunks).strip()
+
+        if raw_text:
+            output = assistant_text
+        else:
+            json_start = assistant_text.find("[")
+            obj_start = assistant_text.find("{")
+            if json_start == -1 or (obj_start != -1 and obj_start < json_start):
+                json_start = obj_start
+            trimmed = assistant_text[json_start:] if json_start != -1 else assistant_text
+            try:
+                output, _ = json.JSONDecoder().raw_decode(trimmed)
+            except json.JSONDecodeError as e:
+                raise ClaudeError(f"Claude returned invalid JSON: {e}\nOutput: {assistant_text[:300]}")
+
+        return ClaudeResult(
+            output=output,
+            cost_usd=done_data.get("cost_usd", 0.0),
+            duration_ms=done_data.get("duration_ms", 0),
+            model=done_data.get("model", ""),
+            run_id=done_data.get("run_id", ""),
+        )
+
+    async def generate_stream(
+            self,
+            agent: str,
+            payload: Any,
+            opportunity_id: Optional[str] = None,
+            timeout: float = 600.0,
     ) -> AsyncGenerator[StreamEvent, None]:
-        async for event in self._run_stream(command_path, payload, opportunity_id, timeout=600.0):
+        """Run an agent and yield StreamEvents."""
+        command_path = self._resolve(agent)
+        async for event in self._generate_stream(command_path, payload, opportunity_id, timeout=timeout):
             yield event
 
     def create_task(self, run_id: str, coro_factory: Callable[["AgentRunHandle"], Coroutine]) -> asyncio.Task:
@@ -170,59 +181,20 @@ class ClaudeService:
     # Private primitives
     # ------------------------------------------------------------------
 
-    async def _collect(
-        self,
-        command_path: Path,
-        payload: Any,
-        opportunity_id: Optional[str] = None,
-        raw_text: bool = False,
-        existing_run_id: Optional[str] = None,
-        timeout: float = 300.0,
-    ) -> ClaudeResult:
-        """Consume the full event stream and return a ClaudeResult."""
-        text_chunks: List[str] = []
-        done_data: Dict[str, Any] = {}
+    def _resolve(self, agent: str) -> Path:
+        """Resolve agent name to command path; raise ClaudeError if unknown."""
+        path = _COMMANDS_DIR / f"{agent}.md"
+        if not path.exists():
+            raise ClaudeError(f"Unknown agent: {agent}")
+        return path
 
-        async for event in self._run_stream(command_path, payload, opportunity_id, existing_run_id=existing_run_id, timeout=timeout):
-            if event.type == "text":
-                text_chunks.append(str(event.data))
-            elif event.type == "done":
-                done_data = event.data if isinstance(event.data, dict) else {}
-            elif event.type in ("error", "cancelled"):
-                raise ClaudeError(str(event.data))
-
-        assistant_text = "".join(text_chunks).strip()
-
-        if raw_text:
-            output = assistant_text
-        else:
-            # Extract the first complete JSON object or array from the output
-            json_start = assistant_text.find("[")
-            obj_start = assistant_text.find("{")
-            if json_start == -1 or (obj_start != -1 and obj_start < json_start):
-                json_start = obj_start
-            trimmed = assistant_text[json_start:] if json_start != -1 else assistant_text
-            # Use a decoder to extract just the first valid JSON value
-            try:
-                output, _ = json.JSONDecoder().raw_decode(trimmed)
-            except json.JSONDecodeError as e:
-                raise ClaudeError(f"Claude returned invalid JSON: {e}\nOutput: {assistant_text[:300]}")
-
-        return ClaudeResult(
-            output=output,
-            cost_usd=done_data.get("cost_usd", 0.0),
-            duration_ms=done_data.get("duration_ms", 0),
-            model=done_data.get("model", ""),
-            run_id=done_data.get("run_id", ""),
-        )
-
-    async def _run_stream(
-        self,
-        command_path: Path,
-        payload: Any,
-        opportunity_id: Optional[str] = None,
-        existing_run_id: Optional[str] = None,
-        timeout: float = 300.0,
+    async def _generate_stream(
+            self,
+            command_path: Path,
+            payload: Any,
+            opportunity_id: Optional[str] = None,
+            existing_run_id: Optional[str] = None,
+            timeout: float = 300.0,
     ) -> AsyncGenerator[StreamEvent, None]:
         import claude_agent_sdk
 

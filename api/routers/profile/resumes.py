@@ -130,7 +130,7 @@ async def parse_work_experience(resume_id: str):
 
     async def _run():
         try:
-            result = await claude.parse_work_experience_from_resume(resume_text, run_id=run.id)
+            result = await claude.generate("parse-work-experience-from-resume", resume_text, run_id=run.id, timeout=120.0)
         except (ClaudeError, asyncio.CancelledError):
             return
         entries = [e for e in (result.output if isinstance(result.output, list) else []) if e.get("company") and e.get("role")]

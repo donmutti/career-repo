@@ -192,7 +192,11 @@ async def source_opportunity(opportunity_id: str):
 
     async def _run():
         try:
-            result = await claude.source_opportunity(opportunity, profile, work_experiences, run_id=run.id)
+            result = await claude.generate("source-opportunity", {
+                "opportunity": opportunity.model_dump(mode="json"),
+                "profile": profile.model_dump(mode="json") if profile else None,
+                "work_experiences": [we.model_dump(mode="json") for we in work_experiences] if work_experiences else [],
+            }, opportunity_id=opportunity_id, run_id=run.id, timeout=180.0)
             sourced = result.output
         except (ClaudeError, asyncio.CancelledError):
             opp_dao.set_sourcing_completed(opportunity_id)
@@ -302,7 +306,12 @@ async def generate_cover_letter(opportunity_id: str):
 
     async def _generate():
         try:
-            result = await claude.generate_markdown_attachment("cover_letter", opportunity, profile, work_experiences, run_id=run.id)
+            result = await claude.generate("generate-attachment", {
+                "attachment_type": "cover_letter",
+                "opportunity": opportunity.model_dump(mode="json"),
+                "profile": profile.model_dump(mode="json") if profile else None,
+                "work_experiences": [we.model_dump(mode="json") for we in work_experiences] if work_experiences else [],
+            }, opportunity_id=opportunity_id, run_id=run.id, raw_text=True, timeout=180.0)
             md_content = result.output
         except (ClaudeError, asyncio.CancelledError):
             return

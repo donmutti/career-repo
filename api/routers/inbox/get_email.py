@@ -43,7 +43,7 @@ async def extract_opportunities(email_id: str):
 
     email_content = f"From: {email.from_address}\nSubject: {email.subject}\n\n{email.body}"
     try:
-        result = await claude.extract_opportunities(email_content)
+        result = await claude.generate("extract-opportunity-from-email", email_content, timeout=120.0)
         extracted = result.output
     except ClaudeError as e:
         raise HTTPException(status_code=500, detail=str(e))
