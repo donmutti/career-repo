@@ -4,13 +4,13 @@ import {BaseDialog} from '@/shared/controls/dialogs/BaseDialog'
 import {ConfirmationDialog} from '@/shared/controls/dialogs/ConfirmationDialog'
 import {ScoreBadge} from '@/shared/controls/buttons/ScoreBadge'
 import {Spinner} from '@/shared/controls/Spinner'
-import {ApiOpportunity, OpportunitySimilarity} from '@/app/opportunities/OpportunityTypes'
+import {Opportunity, OpportunitySimilarity} from '@/app/opportunities/OpportunityTypes'
 
 interface MergeIntoDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   opportunityId: string
-  jobs: ApiOpportunity[]
+  jobs: Opportunity[]
   similarOpportunities: OpportunitySimilarity[]
   onMerge: (canonicalId: string) => void
   isMerging: boolean

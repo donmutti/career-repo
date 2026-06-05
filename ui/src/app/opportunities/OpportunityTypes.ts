@@ -21,6 +21,7 @@ export interface Opportunity {
   type: string
   url: string
   avatar_url?: string
+  created_at: string
   sourcing_started_at?: string | null
   sourcing_completed_at?: string | null
   sourcing_agent_run_id?: string | null
@@ -59,22 +60,6 @@ export interface Attachment {
   file_path: string
 }
 
-export interface ApiOpportunity {
-  id: string
-  type: string
-  url: string
-  avatar_url?: string
-  created_at: string
-  sourcing_started_at?: string | null
-  sourcing_completed_at?: string | null
-  active_version: {
-    title?: string
-    status: string
-    score?: number
-    organization_name?: string
-  }
-}
-
 export const STATUS_LABELS: Record<string, string> = {
   opened: 'New',
   shortlisted: 'Shortlisted',
@@ -96,7 +81,7 @@ export type JobGroupByMode = 'status' | 'organization_name' | 'score' | 'title'
 export interface JobGroupByOption {
   label: string
   icon: LucideIcon
-  groupBy?: (item: ApiOpportunity) => string
+  groupBy?: (item: Opportunity) => string
   groupByKeys?: string[]
   groupSortKey?: (key: string) => number
   groupLabelDetail?: (key: string) => ReactNode

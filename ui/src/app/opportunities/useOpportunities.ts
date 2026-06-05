@@ -2,6 +2,7 @@ import {useMutation, useQuery} from '@tanstack/react-query'
 import {queryKeys} from '@/services/queryKeys'
 import {opportunities as opApi} from '@/services/client'
 import {queryClient} from '@/services/queryClient'
+import {Opportunity} from '@/app/opportunities/OpportunityTypes'
 
 export function useOpportunities() {
   const {data, isLoading} = useQuery({
@@ -16,7 +17,7 @@ export function useOpportunities() {
     },
   })
 
-  const opportunities = (data as ApiOpportunity[]) ?? []
+  const opportunities = (data as Opportunity[]) ?? []
 
   return {opportunities, isLoading, createMutation}
 }

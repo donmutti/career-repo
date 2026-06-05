@@ -3,17 +3,7 @@ import {useNavigate} from 'react-router'
 import {ScoreBadge} from '@/shared/controls/buttons/ScoreBadge'
 import {Spinner} from '@/shared/controls/Spinner'
 import {Building2} from 'lucide-react'
-
-interface Opportunity {
-  id: string
-  url: string
-  avatar_url?: string
-  active_version: {
-    title?: string
-    status: string
-    score?: number
-  }
-}
+import {Opportunity} from '@/app/opportunities/OpportunityTypes'
 
 interface JobRowProps {
   opportunity: Opportunity

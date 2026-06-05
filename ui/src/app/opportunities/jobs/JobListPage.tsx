@@ -1,8 +1,8 @@
-import {useState, useEffect} from 'react'
+import {useEffect, useState} from 'react'
 import {useNavigate, useOutletContext, useParams} from 'react-router'
 import {ArrowDownUp, Briefcase, LayoutList} from 'lucide-react'
 import {LocalStorageUtils} from '@/shared/utils/LocalStorageUtils'
-import {ApiOpportunity, JOB_GROUP_BY_OPTIONS, JobGroupByMode, STATUS_LABELS} from '@/app/opportunities/OpportunityTypes'
+import {JOB_GROUP_BY_OPTIONS, JobGroupByMode, Opportunity, STATUS_LABELS} from '@/app/opportunities/OpportunityTypes'
 import {filterByTimeWindow} from '@/shared/controls/views/TimeWindowTypes'
 import type {OpportunityContext} from '@/app/opportunities/OpportunityPage'
 import {Spinner} from '@/shared/controls/Spinner'
@@ -15,7 +15,6 @@ import {JobRow} from './JobRow'
 import {JobView} from './JobView'
 import {AddJobBar} from './AddJobBar'
 import {useOpportunities} from '@/app/opportunities/useOpportunities'
-
 
 
 export default function JobListPage() {
@@ -34,7 +33,7 @@ export default function JobListPage() {
 
   const jobs = filterByTimeWindow(opportunities.filter(o => o.type === 'job'), timeWindow)
 
-  const byStatus = jobs.reduce<Record<string, ApiOpportunity[]>>((acc, o) => {
+  const byStatus = jobs.reduce<Record<string, Opportunity[]>>((acc, o) => {
     ;(acc[o.active_version.status] ??= []).push(o)
     return acc
   }, {})
@@ -63,7 +62,10 @@ export default function JobListPage() {
                   ...(Object.entries(JOB_GROUP_BY_OPTIONS) as [JobGroupByMode, typeof JOB_GROUP_BY_OPTIONS[JobGroupByMode]][]).map(([mode, opt]) => ({
                     label: opt.label,
                     icon: <opt.icon size={14}/>,
-                    onClick: () => { setGroupByMode(mode); LocalStorageUtils.set('pane.jobs.groupBy', mode) },
+                    onClick: () => {
+                      setGroupByMode(mode);
+                      LocalStorageUtils.set('pane.jobs.groupBy', mode)
+                    },
                     checked: groupByMode === mode,
                   })),
                 ]}
