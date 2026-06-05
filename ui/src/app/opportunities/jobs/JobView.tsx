@@ -60,9 +60,6 @@ export function JobView({opportunityId}: JobViewProps) {
       navigate('/opportunities/jobs')
     },
 
-    onAbsorbed: () => {
-      navigate(`/opportunities/jobs/${opportunityId}`)
-    },
 
   })
 
