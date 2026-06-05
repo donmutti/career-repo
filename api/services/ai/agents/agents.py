@@ -1,7 +1,7 @@
 """Agent name constants."""
 
 
-class Agent:
+class AgentName:
     INBOX_PREFLIGHT = "inbox-preflight"
     INBOX_SCAN = "scan-inbox"
     EXTRACT_OPPORTUNITY = "extract-opportunity-from-email"

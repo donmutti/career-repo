@@ -18,6 +18,7 @@ inbox:
   scan_keywords:
     - "job"
     - "recruiter"
+    - "opportunity"
     - "job opportunity"
     - "open position"
     - "we're hiring"

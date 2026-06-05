@@ -3,7 +3,7 @@
 from pathlib import Path
 
 from agent_runtime import AgentRunError, AgentRun, AgentRunEvent, AgentRunEventType, AgentRuntime, ClaudeAgentSDK
-from .agents import Agent
+from .agents import AgentName
 from .embedding_service import EmbeddingService
 from api.db import AgentRunDAO as _AgentRunDAO
 
@@ -22,7 +22,7 @@ runtime = AgentRuntime(sdk=ClaudeAgentSDK(), store=_AgentRunDAO(), prompts_dir=_
 embedding = EmbeddingService()
 
 __all__ = [
-    "Agent",
+    "AgentName",
     "AgentRunError",
     "AgentRun",
     "AgentRunEvent",

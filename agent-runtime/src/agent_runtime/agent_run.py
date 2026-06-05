@@ -2,11 +2,14 @@
 
 import asyncio
 import json
+import logging
 import time
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Any, AsyncGenerator, Dict, List, Optional, Protocol
+
+logger = logging.getLogger(__name__)
 
 from pydantic import BaseModel
 
@@ -112,53 +115,70 @@ class AgentRun:
             timeout: float = 300.0,
             permission_mode: AgentSDKPermissionMode = AgentSDKPermissionMode.BYPASS_PERMISSIONS,
             max_turns: int = 30,
+            retries: int = 0,
     ) -> AgentRunResult:
-        """Run this agent to completion and return an AgentRunResult."""
+        """Run this agent to completion and return an AgentRunResult. Retries on AgentRunError up to `retries` times."""
         prompt_path = self._prompt_path()
-        text_chunks: List[str] = []
-        done_data: Optional[AgentRunDoneData] = None
 
-        # Open the underlying event stream
-        stream = self._stream(
-            prompt_path,
-            payload,
-            timeout=timeout,
-            permission_mode=permission_mode,
-            max_turns=max_turns
-        )
+        for attempt in range(retries + 1):
+            text_chunks: List[str] = []
+            done_data: Optional[AgentRunDoneData] = None
 
-        # Consume the stream, collecting text and done metadata; raise on error or cancellation
-        async for event in stream:
-            if event.type == AgentRunEventType.TEXT:
-                text_chunks.append(str(event.data))
-            elif event.type == AgentRunEventType.DONE:
-                done_data = event.data if isinstance(event.data, AgentRunDoneData) else None
-            elif event.type in (AgentRunEventType.ERROR, AgentRunEventType.CANCELLED):
-                raise AgentRunError(str(event.data))
-
-        raw_text = "".join(text_chunks).strip()
-
-        # Parse output — either raw text or the first JSON value in the response
-        if not expects_json:
-            output = raw_text
-        else:
-            json_start = raw_text.find("[")
-            obj_start = raw_text.find("{")
-            if json_start == -1 or (obj_start != -1 and obj_start < json_start):
-                json_start = obj_start
-            json_text = raw_text[json_start:] if json_start != -1 else raw_text
             try:
-                output, _ = json.JSONDecoder().raw_decode(json_text)
-            except json.JSONDecodeError as e:
-                raise AgentRunError(f"Agent returned invalid JSON: {e}\nOutput: {raw_text[:300]}")
+                # Open the underlying event stream
+                stream = self._stream(
+                    prompt_path,
+                    payload,
+                    timeout=timeout,
+                    permission_mode=permission_mode,
+                    max_turns=max_turns
+                )
 
-        return AgentRunResult(
-            output=output,
-            cost_usd=done_data.cost_usd if done_data else 0.0,
-            duration_ms=done_data.duration_ms if done_data else 0,
-            model=done_data.model if done_data else "",
-            run_id=done_data.run_id if done_data else "",
-        )
+                # Consume the stream, collecting text and done metadata; raise on error or cancellation
+                async for event in stream:
+                    if event.type == AgentRunEventType.TEXT:
+                        text_chunks.append(str(event.data))
+                    elif event.type == AgentRunEventType.DONE:
+                        done_data = event.data if isinstance(event.data, AgentRunDoneData) else None
+                    elif event.type in (AgentRunEventType.ERROR, AgentRunEventType.CANCELLED):
+                        raise AgentRunError(str(event.data))
+
+            except asyncio.CancelledError:
+                raise
+            except AgentRunError as e:
+                if attempt < retries:
+                    logger.warning("Attempt %d/%d failed: %s, retrying", attempt + 1, retries + 1, e)
+                    continue
+                raise
+
+            raw_text = "".join(text_chunks).strip()
+
+            # Parse output — either raw text or the first JSON value in the response
+            if not expects_json:
+                output = raw_text
+            else:
+                json_start = raw_text.find("[")
+                obj_start = raw_text.find("{")
+                if json_start == -1 or (obj_start != -1 and obj_start < json_start):
+                    json_start = obj_start
+                json_text = raw_text[json_start:] if json_start != -1 else raw_text
+                try:
+                    output, _ = json.JSONDecoder().raw_decode(json_text)
+                except json.JSONDecodeError as e:
+                    if attempt < retries:
+                        logger.warning("Attempt %d/%d returned invalid JSON, retrying", attempt + 1, retries + 1)
+                        continue
+                    raise AgentRunError(f"Agent returned invalid JSON: {e}\nOutput: {raw_text[:300]}")
+
+            return AgentRunResult(
+                output=output,
+                cost_usd=done_data.cost_usd if done_data else 0.0,
+                duration_ms=done_data.duration_ms if done_data else 0,
+                model=done_data.model if done_data else "",
+                run_id=done_data.run_id if done_data else "",
+            )
+
+        raise AgentRunError("All attempts failed")
 
     async def generate_stream(
             self,

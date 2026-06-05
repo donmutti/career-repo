@@ -39,6 +39,14 @@ class AgentRunDAO(BaseEntityDAO[AgentRun]):
         )
         return [self._from_dict(dict(row)) for row in cursor.fetchall()]
 
+    def list_active_by_agent_name(self, agent: str) -> List[AgentRun]:
+        """List active runs for a specific agent name."""
+        cursor = self._execute(
+            "select * from agent_run where status = 'running' and agent = ? order by created_at desc",
+            (agent,),
+        )
+        return [self._from_dict(dict(row)) for row in cursor.fetchall()]
+
     def list_active_by_external_id(self, external_id: str) -> List[AgentRun]:
         """List active runs for a specific external ID."""
         cursor = self._execute(

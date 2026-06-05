@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException
 
 from ...db import InboxEmailDAO, OpportunityDAO
 from ...models import InboxEmail, Opportunity, OpportunityVersion, OpportunityStatus, OpportunityType
-from ...services.ai import Agent, AgentRunError, runtime
+from ...services.ai import AgentName, AgentRunError, runtime
 
 router = APIRouter(prefix="/inbox", tags=["inbox"])
 
@@ -42,7 +42,7 @@ async def extract_opportunities(email_id: str):
 
     email_content = f"From: {email.from_address}\nSubject: {email.subject}\n\n{email.body}"
     try:
-        result = await runtime.generate(Agent.EXTRACT_OPPORTUNITY, email_content, timeout=120.0)
+        result = await runtime.generate(AgentName.EXTRACT_OPPORTUNITY, email_content, timeout=120.0)
         extracted = result.output
     except AgentRunError as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -49,6 +49,7 @@ class AgentRuntime:
             timeout: float = 300.0,
             permission_mode: AgentSDKPermissionMode = AgentSDKPermissionMode.BYPASS_PERMISSIONS,
             max_turns: int = 30,
+            retries: int = 0,
     ) -> AgentRunResult:
         # Create an AgentRun
         run = self.create(agent_name, external_id)
@@ -59,7 +60,8 @@ class AgentRuntime:
             expects_json=expects_json,
             timeout=timeout,
             permission_mode=permission_mode,
-            max_turns=max_turns
+            max_turns=max_turns,
+            retries=retries,
         )
 
     async def generate_stream(

@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse
 from ...config import ROOT, get_resumes_path
 from ...db import AgentRunDAO, ProfileDAO, ResumeDAO, WorkExperienceDAO
 from ...models.types import Resume
-from ...services.ai import Agent, AgentRunError, runtime
+from ...services.ai import AgentName, AgentRunError, runtime
 
 router = APIRouter(prefix="/profile/resumes", tags=["profile"])
 
@@ -87,9 +87,8 @@ def delete_resume(resume_id: str):
 @router.get("/parse-work-experience/active")
 def get_active_parse():
     """Return the active parse-work-experience run ID if one is in progress, else null."""
-    for run in agent_run_dao.list_active():
-        if run.agent == Agent.PARSE_WORK_EXPERIENCE:
-            return {"run_id": run.id}
+    for run in agent_run_dao.list_active_by_agent_name(AgentName.PARSE_WORK_EXPERIENCE):
+        return {"run_id": run.id}
     return {"run_id": None}
 
 
@@ -126,7 +125,7 @@ async def parse_work_experience(resume_id: str):
     if not resume_text.strip():
         raise HTTPException(status_code=422, detail="Could not extract text from resume")
 
-    run = runtime.create(Agent.PARSE_WORK_EXPERIENCE)
+    run = runtime.create(AgentName.PARSE_WORK_EXPERIENCE)
 
     async def _run():
         try:

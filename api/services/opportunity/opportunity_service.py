@@ -2,7 +2,7 @@
 
 from datetime import date
 
-from api.services.ai import AgentRunError, AgentRun, Agent
+from api.services.ai import AgentRunError, AgentRun, AgentName
 
 from api.db import AgentRunDAO, OpportunityDAO, ProfileDAO, WorkExperienceDAO
 from api.db.daos.opportunity.base.opportunity_embedding_dao import OpportunityEmbeddingDAO
@@ -70,7 +70,7 @@ class OpportunityService:
         profile = self._profile_dao.get()
         work_experiences = self._work_experience_dao.list_for_profile(profile.id) if profile else []
 
-        run = self._runtime.create(Agent.SOURCE_OPPORTUNITY, external_id=opportunity_id)
+        run = self._runtime.create(AgentName.SOURCE_OPPORTUNITY, external_id=opportunity_id)
         self._opp_dao.set_sourcing_started(opportunity_id, run.run_id)
 
         async def _run():
@@ -124,7 +124,7 @@ class OpportunityService:
         profile = self._profile_dao.get()
         work_experiences = self._work_experience_dao.list_for_profile(profile.id) if profile else []
 
-        run = self._runtime.create(Agent.GENERATE_ATTACHMENT, external_id=opportunity_id)
+        run = self._runtime.create(AgentName.GENERATE_ATTACHMENT, external_id=opportunity_id)
 
         async def _generate():
             try:

@@ -1,29 +1,30 @@
 # Inbox Preflight
 
-**Prompt:** Count the total number of emails matching a Gmail search query.
+**Prompt:** Fetch all Gmail message IDs matching a search query.
 
 **Input:**
 ```json
 {
-  "query": "string (the Gmail search query to count)"
+  "query": "string (the Gmail search query)"
 }
 ```
 
 **Output:**
 ```json
 {
-  "total": 123
+  "total": 123,
+  "ids": ["id1", "id2", "..."]
 }
 ```
 
 **Behavior:**
 
-1. Search Gmail with the provided `query` using `max_results=500`. Count the number of results returned and note the `next_page_token` if present.
+1. Search Gmail with the provided `query` using `max_results=500`. Collect all message IDs from the results.
 
-2. If a `next_page_token` is present, fetch the next page with `max_results=500` and the page token. Add the count to the running total. Repeat until there is no `next_page_token`.
+2. If a `next_page_token` is present, fetch the next page with `max_results=500` and the page token. Collect IDs. Repeat until there is no `next_page_token`.
 
-3. Return the final total count as the JSON object described above.
+3. Return the total count and the full list of collected IDs.
 
-4. On error, return `{ "total": 0 }` — do not throw.
+4. On error, return `{ "total": 0, "ids": [] }` — do not throw.
 
 **IMPORTANT:** Your final response must be a raw JSON object only — no explanation, no prose, no markdown code fences. Start with `{` and end with `}`.

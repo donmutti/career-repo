@@ -44,6 +44,17 @@ class InboxEmailDAO(BaseEntityDAO[InboxEmail]):
         row = cursor.fetchone()
         return self._from_dict(dict(row)) if row else None
 
+    def get_known_external_ids(self, external_ids: List[str]) -> set:
+        """Return the subset of external_ids already stored in the DB."""
+        if not external_ids:
+            return set()
+        placeholders = ",".join("?" * len(external_ids))
+        cursor = self._execute(
+            f"select external_id from inbox_email where external_id in ({placeholders})",
+            external_ids,
+        )
+        return {row["external_id"] for row in cursor.fetchall()}
+
     def list_all(self, from_date: Optional[str] = None, to_date: Optional[str] = None) -> List[InboxEmail]:
         """List emails ordered by received date descending, optionally filtered by date range."""
         query = "select * from inbox_email"
@@ -113,9 +124,9 @@ class InboxEmailDAO(BaseEntityDAO[InboxEmail]):
         }
 
     def last_scanned_at(self) -> Optional[str]:
-        """Return the completed_at of the most recent successful inbox scan, or None."""
+        """Return the created_at of the most recent successful inbox scan, or None."""
         cursor = self._execute(
-            "select max(completed_at) as ts from agent_run where agent = 'scan-inbox.md' and status = 'completed'"
+            "select created_at as ts from agent_run where agent = 'scan-inbox' and status = 'completed' order by created_at desc limit 1"
         )
         row = cursor.fetchone()
         return row["ts"] if row else None

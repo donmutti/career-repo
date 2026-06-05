@@ -3,10 +3,11 @@
 import asyncio
 import logging
 from datetime import datetime, timezone, timedelta
+from typing import List
 
 from api.config import get_inbox_scan_days, get_inbox_scan_batch_size, get_inbox_scan_keywords
 from api.db import InboxEmailDAO, EmailOpportunityDAO, AgentRunDAO
-from api.services.ai import Agent, AgentRunError, AgentRun, runtime
+from api.services.ai import AgentName, AgentRunError, AgentRun, runtime
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -23,89 +24,99 @@ class InboxService:
         keyword_str = " OR ".join(f'"{k}"' for k in keywords)
         last_scanned = self._email_dao.last_scanned_at()
         if last_scanned:
-            after_dt = datetime.fromisoformat(last_scanned.replace("Z", "+00:00"))
+            # Rescan from midnight of the last scan day, including the full day of the last scan,
+            # so emails that arrived during or just after the previous run are not missed
+            after_dt = datetime.fromisoformat(last_scanned.replace("Z", "+00:00")).replace(hour=0, minute=0, second=0, microsecond=0)
         else:
             after_dt = datetime.now(timezone.utc) - timedelta(days=get_inbox_scan_days())
-        after = after_dt.strftime("%Y/%m/%d")
-        return f'({keyword_str}) after:{after}'
+        after_epoch = int(after_dt.timestamp())
+        return f'({keyword_str}) after:{after_epoch}'
 
     def list_active_scans(self):
         return [
-            run for run in self._agent_run_dao.list_active()
-            if run.agent == Agent.INBOX_SCAN and run.meta is not None
+            run for run in self._agent_run_dao.list_active_by_agent_name(AgentName.INBOX_SCAN)
+            if run.meta is not None
         ]
 
     def start_scan(self) -> AgentRun:
-        run = runtime.create(Agent.INBOX_SCAN)
+        run = runtime.create(AgentName.INBOX_SCAN)
         run.set_meta({"current": 0, "total": 0, "preparing": True})
         runtime.run(run, self._run_scan(run))
         return run
 
     async def _run_scan(self, run: AgentRun) -> None:
-        # Probe: get total count
+        # Probe: fetch all matching IDs
         try:
             scan_query = self.build_scan_query()
             logger.info("Starting probe: scan_days=%d query=%r", get_inbox_scan_days(), scan_query)
-            probe_result = await runtime.generate(Agent.INBOX_PREFLIGHT, {"query": scan_query}, timeout=300.0)
+            probe_result = await runtime.generate(AgentName.INBOX_PREFLIGHT, {"query": scan_query}, timeout=300.0)
             probe = probe_result.output
-            total = int(probe.get("total", 0))
+            all_ids: List[str] = probe.get("ids") or []
         except Exception as e:
             run.fail(f"Probe failed: {e}")
             return
 
+        # Filter out already-known emails
+        known_ids = self._email_dao.get_known_external_ids(all_ids)
+        new_ids = [eid for eid in all_ids if eid not in known_ids]
+        total = len(new_ids)
+
         batch_size = get_inbox_scan_batch_size()
-        run.set_meta({"current": min(batch_size, total), "total": total, "preparing": False})
-        logger.info("Probe complete: total=%d query=%r", total, scan_query)
+        last_scanned_at = self._email_dao.last_scanned_at()
+        run.set_meta({"current": min(batch_size, total), "total": total, "preparing": False, "last_scanned_at": last_scanned_at})
+        logger.info("Probe complete: total=%d new=%d query=%r", len(all_ids), total, scan_query)
 
-        # Batch scan loop
-        page_token = None
+        if not new_ids:
+            run.complete()
+            return
+
+        # Batch scan loop — pass ID slices directly, no query/pagination needed
         current = 0
+        offset = 0
 
-        while True:
-            if not run.is_running():
+        while run.is_running() and offset < len(new_ids):
+            batch_ids = new_ids[offset:offset + batch_size]
+
+            try:
+                result = await runtime.generate(
+                    AgentName.INBOX_SCAN,
+                    {"ids": batch_ids},
+                    timeout=300.0,
+                    retries=2,
+                )
+            except asyncio.CancelledError:
+                return
+            except AgentRunError as e:
+                logger.error("Batch failed after all attempts, aborting scan: %s", e)
+                run.fail("Batch failed after all attempts")
                 return
 
-            batch = None
-            for attempt in range(3):
-                try:
-                    result = await runtime.generate(
-                        Agent.INBOX_SCAN,
-                        {"query": scan_query, "page_token": page_token, "max_results": get_inbox_scan_batch_size()},
-                        timeout=300.0,
-                    )
-                    if isinstance(result.output, dict):
-                        batch = result.output
-                        break
-                    logger.warning("Batch attempt %d returned unexpected type %s, retrying", attempt + 1, type(result.output).__name__)
-                except asyncio.CancelledError:
-                    return
-                except AgentRunError as e:
-                    logger.warning("Batch attempt %d failed: %s, retrying", attempt + 1, e)
-
-            if batch is None:
-                logger.error("Batch failed after 3 attempts, aborting scan")
-                run.fail("Batch failed after 3 attempts")
+            if not isinstance(result.output, dict):
+                logger.error("Batch returned unexpected type %s, aborting scan", type(result.output).__name__)
+                run.fail("Batch returned unexpected output")
                 return
 
-            scanned_emails = batch.get("emails", [])
-            next_page_token = batch.get("next_page_token")
-
-            current += len(scanned_emails)
+            scanned_emails = result.output.get("emails", [])
+            offset += len(batch_ids)
+            current += len(batch_ids)
             run.set_meta({"current": current, "total": total, "preparing": False})
-            logger.info("Batch complete: emails=%d current=%d/%d next_page_token=%s", len(scanned_emails), current, total, next_page_token)
+            logger.info("Batch complete: emails=%d current=%d/%d", len(scanned_emails), current, total)
 
             for email_data in scanned_emails:
                 external_id = email_data.get("id")
                 if self._email_dao.get_by_external_id(external_id):
                     continue
+
                 received_raw = email_data.get("date")
                 try:
                     received_at = datetime.fromisoformat(received_raw.replace("Z", "+00:00")) if isinstance(received_raw, str) else (received_raw or datetime.now(timezone.utc))
                 except (ValueError, AttributeError):
                     received_at = datetime.now(timezone.utc)
+
                 opportunities = email_data.get("opportunities") or []
                 if not opportunities:
                     continue
+
                 created_email = self._email_dao.create(
                     external_id=external_id,
                     received_at=received_at,
@@ -114,6 +125,7 @@ class InboxService:
                     subject=email_data.get("subject", ""),
                     body=email_data.get("body", ""),
                 )
+
                 for opp in opportunities:
                     title = opp.get("title", "").strip()
                     opp_type = opp.get("type", "job")
@@ -121,10 +133,5 @@ class InboxService:
                     organization_name = opp.get("organization_name") or None
                     if title:
                         self._email_opp_dao.create(created_email.id, title, opp_type, url, organization_name)
-
-            if not next_page_token:
-                break
-
-            page_token = next_page_token
 
         run.complete()
