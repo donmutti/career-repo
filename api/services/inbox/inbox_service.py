@@ -130,7 +130,8 @@ class InboxService:
                     opp_type = opp.get("type", "job")
                     url = opp.get("url") or None
                     organization_name = opp.get("organization_name") or None
+                    location = opp.get("location") or None
                     if title:
-                        self._email_opp_dao.create(created_email.id, title, opp_type, url, organization_name)
+                        self._email_opp_dao.create(created_email.id, title, opp_type, url, organization_name, location)
 
         run.complete()

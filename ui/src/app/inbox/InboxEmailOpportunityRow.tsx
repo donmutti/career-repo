@@ -44,7 +44,7 @@ export function InboxEmailOpportunityRow({item, onExtract, onSkip, onReset}: Ema
       <div className={`flex items-center gap-2 text-base px-6 overflow-hidden ${sorted ? 'opacity-50' : ''}`}>
         {Icon && <Icon size={14} className="shrink-0 text-label-medium"/>}
         <span className={`flex-1 truncate ${declined ? 'line-through text-label-dark' : sorted ? 'text-label-dark' : 'text-label-darker'}`}>
-          {item.title}
+          {item.title}{item.location && <span className="text-label-medium"> ({item.location})</span>}
         </span>
         {item.url && (
           <a href={item.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="shrink-0 text-label-medium hover:text-action">

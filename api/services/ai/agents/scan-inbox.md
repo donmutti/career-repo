@@ -25,7 +25,8 @@
           "title": "string (concise opportunity title, e.g. 'Senior Engineer at Acme')",
           "type": "job",
           "url": "string | null (direct link to the job posting, if present in the email)",
-          "organization_name": "string | null (name of the hiring organization, e.g. 'Acme')"
+          "organization_name": "string | null (name of the hiring organization, e.g. 'Acme')",
+          "location": "string | null (city or region where the role is based, e.g. 'Berlin'; 'Remote' if remote-only; null if unknown)"
         }
       ]
     }

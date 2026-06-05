@@ -8,12 +8,12 @@ from ..base import BaseEntityDAO
 
 class EmailOpportunityDAO(BaseEntityDAO[EmailOpportunity]):
 
-    def create(self, inbox_email_id: str, title: str, type: str, url: Optional[str] = None, organization_name: Optional[str] = None) -> EmailOpportunity:
+    def create(self, inbox_email_id: str, title: str, type: str, url: Optional[str] = None, organization_name: Optional[str] = None, location: Optional[str] = None) -> EmailOpportunity:
         eo_id = self._generate_id()
         now = self._now()
         self._execute(
-            "insert into email_opportunity (id, created_at, inbox_email_id, title, type, url, organization_name, status) values (?, ?, ?, ?, ?, ?, ?, 'pending')",
-            (eo_id, now, inbox_email_id, title, type, url, organization_name),
+            "insert into email_opportunity (id, created_at, inbox_email_id, title, type, url, organization_name, location, status) values (?, ?, ?, ?, ?, ?, ?, ?, 'pending')",
+            (eo_id, now, inbox_email_id, title, type, url, organization_name, location),
         )
         self._save()
         return self.get(eo_id)
@@ -76,4 +76,5 @@ class EmailOpportunityDAO(BaseEntityDAO[EmailOpportunity]):
             organization_name=row.get("organization_name"),
             status=row["status"],
             opportunity_id=row.get("opportunity_id"),
+            location=row.get("location"),
         )

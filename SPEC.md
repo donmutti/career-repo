@@ -273,6 +273,7 @@ EmailOpportunity (immutable entity) — a potential opportunity identified by Cl
 - type: string — opportunity type hint
 - url: string (optional)
 - organization_name: string (optional) — hiring organization extracted by Claude during scan
+- location: string (optional) — city/region extracted by Claude during scan; "Remote" if remote-only
 - status: string — `pending` | `extracted` | `skipped`
 - opportunity_id: UUID (optional) — set after extraction
 
@@ -590,6 +591,7 @@ Versioned entities: two-table pattern — `<entity>` holds identity table (`id`,
 - type TEXT not null default 'job'
 - url TEXT
 - organization_name TEXT
+- location TEXT
 - status TEXT not null default 'pending'
 - opportunity_id TEXT (references `opportunity`, on delete set null)
 
@@ -799,6 +801,7 @@ EmailOpportunity (BaseEntity):
 - type: str
 - url: str (optional)
 - organization_name: str (optional)
+- location: str (optional)
 - status: str — `pending` | `extracted` | `skipped`
 - opportunity_id: str (optional)
 
@@ -913,7 +916,7 @@ InboxEmailDAO (BaseEntityDAO[InboxEmail]):
 
 EmailOpportunityDAO (BaseEntityDAO[EmailOpportunity]):
 
-- `create(inbox_email_id, title, type, url?, organization_name?): EmailOpportunity`
+- `create(inbox_email_id, title, type, url?, organization_name?, location?): EmailOpportunity`
 - `get(eo_id): EmailOpportunity | None`
 - `list_by_email(inbox_email_id): list[EmailOpportunity]`
 - `set_status(eo_id, status, opportunity_id?): EmailOpportunity`
