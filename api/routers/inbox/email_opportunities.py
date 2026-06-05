@@ -8,7 +8,6 @@ from typing import Optional
 from ...db import EmailOpportunityDAO
 from ...db.daos.opportunity.base.opportunity_dao import OpportunityDAO
 from ...db.daos.opportunity.meta.comment_dao import CommentDAO
-from ...db.daos.agent.agent_run_dao import AgentRunDAO
 from ...models.entities import EmailOpportunity
 from ...models.entities.opportunity.meta.comment import CommentVersion
 from ...models.entities.opportunity.base.opportunity import (
@@ -22,7 +21,6 @@ router = APIRouter(prefix="/inbox", tags=["inbox"])
 email_opp_dao = EmailOpportunityDAO()
 opportunity_dao = OpportunityDAO()
 comment_dao = CommentDAO()
-agent_run_dao = AgentRunDAO()
 opp_service = OpportunityService()
 
 
@@ -60,8 +58,7 @@ async def patch_email_opportunity(eo_id: str, body: PatchEmailOpportunityDto):
         opp_service.source(opportunity_id)
 
     if body.status in ("pending", "skipped") and eo.opportunity_id:
-        active_runs = agent_run_dao.list_active_by_external_id(eo.opportunity_id)
-        for run in active_runs:
+        for run in runtime.list_active_by_external_id(eo.opportunity_id):
             await runtime.cancel(run.id)
         opportunity_dao.delete(eo.opportunity_id)
         opportunity_id = None

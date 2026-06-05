@@ -11,7 +11,6 @@ from ...config import ROOT, get_attachment_path
 from ...db import (
     OpportunityDAO,
     CommentDAO, AttachmentDAO,
-    AgentRunDAO,
     OpportunityEmbeddingDAO, OpportunitySimilarityDAO,
 )
 from ...models import (
@@ -22,8 +21,8 @@ from ...models import (
     CreateOpportunityRequestDto, UpdateOpportunityRequestDto,
     Comment, CommentVersion, CreateCommentRequestDto,
     Attachment, CreateAttachmentRequestDto,
-    AgentRun,
 )
+from ...services.ai import runtime
 from ...services.files import FileService
 from ...services.opportunity import OpportunityService
 
@@ -33,7 +32,6 @@ attachments_router = APIRouter(tags=["attachments"])
 opp_dao = OpportunityDAO()
 comment_dao = CommentDAO()
 attach_dao = AttachmentDAO()
-agent_run_dao = AgentRunDAO()
 embedding_dao = OpportunityEmbeddingDAO()
 similarity_dao = OpportunitySimilarityDAO()
 files = FileService(ROOT / get_attachment_path())
@@ -158,13 +156,13 @@ def delete_opportunity(opportunity_id: str):
     opp_dao.delete(opportunity_id)
 
 
-@router.get("/{opportunity_id}/agent-runs", response_model=List[AgentRun])
+@router.get("/{opportunity_id}/agent-runs")
 def list_opportunity_agent_runs(opportunity_id: str):
     """Return active agent runs for this opportunity."""
     opp = opp_dao.get(opportunity_id)
     if not opp:
         raise HTTPException(status_code=404, detail="Opportunity not found")
-    return agent_run_dao.list_active_by_external_id(opportunity_id)
+    return runtime.list_active_by_external_id(opportunity_id)
 
 
 @router.get("/{opportunity_id}/history")
@@ -180,7 +178,7 @@ def get_opportunity_history(opportunity_id: str):
 # ---------------------------------------------------------------------------
 
 @router.post("/{opportunity_id}/source", status_code=202)
-def source_opportunity(opportunity_id: str):
+async def source_opportunity(opportunity_id: str):
     """AI-assisted sourcing: enriches details and scores the opportunity. Runs in background."""
     if not opp_dao.get(opportunity_id):
         raise HTTPException(status_code=404, detail="Opportunity not found")
@@ -241,14 +239,14 @@ def create_attachment(opportunity_id: str, request: CreateAttachmentRequestDto):
 @router.get("/{opportunity_id}/cover-letter/active")
 def get_active_cover_letter_run(opportunity_id: str):
     """Return the active cover-letter run ID for this opportunity, or null."""
-    for run in agent_run_dao.list_active_by_external_id(opportunity_id):
+    for run in runtime.list_active_by_external_id(opportunity_id):
         if run.agent == "generate-attachment.md":
             return {"run_id": run.id}
     return {"run_id": None}
 
 
 @router.post("/{opportunity_id}/cover-letter", status_code=202)
-def generate_cover_letter(opportunity_id: str):
+async def generate_cover_letter(opportunity_id: str):
     """Generate a cover letter for a Job opportunity. Runs in background; poll agent run for completion."""
     opportunity = opp_dao.get(opportunity_id)
     if not opportunity:

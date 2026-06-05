@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
 from ...config import ROOT, get_resumes_path
-from ...db import AgentRunDAO, ProfileDAO, ResumeDAO, WorkExperienceDAO
+from ...db import ProfileDAO, ResumeDAO, WorkExperienceDAO
 from ...models.types import Resume
 from ...services.ai import AgentName, AgentRunError, runtime
 
@@ -17,7 +17,6 @@ router = APIRouter(prefix="/profile/resumes", tags=["profile"])
 profile_dao = ProfileDAO()
 resume_dao = ResumeDAO()
 we_dao = WorkExperienceDAO()
-agent_run_dao = AgentRunDAO()
 
 RESUMES_DIR = ROOT / get_resumes_path()
 MAX_RESUME_SIZE = 20 * 1024 * 1024  # 20MB
@@ -87,7 +86,7 @@ def delete_resume(resume_id: str):
 @router.get("/parse-work-experience/active")
 def get_active_parse():
     """Return the active parse-work-experience run ID if one is in progress, else null."""
-    for run in agent_run_dao.list_active_by_agent_name(AgentName.PARSE_WORK_EXPERIENCE):
+    for run in runtime.list_active_by_agent_name(AgentName.PARSE_WORK_EXPERIENCE):
         return {"run_id": run.id}
     return {"run_id": None}
 

@@ -4,7 +4,7 @@ from datetime import date
 
 from api.services.ai import AgentRunError, AgentRun, AgentName
 
-from api.db import AgentRunDAO, OpportunityDAO, ProfileDAO, WorkExperienceDAO
+from api.db import OpportunityDAO, ProfileDAO, WorkExperienceDAO
 from api.db.daos.opportunity.base.opportunity_embedding_dao import OpportunityEmbeddingDAO
 from api.db.daos.opportunity.base.opportunity_similarity_dao import OpportunitySimilarityDAO
 from api.db.daos.opportunity.meta.attachment_dao import AttachmentDAO
@@ -62,7 +62,6 @@ class OpportunityService:
         self._attach_dao = AttachmentDAO()
         self._embedding_dao = OpportunityEmbeddingDAO()
         self._similarity_dao = OpportunitySimilarityDAO()
-        self._agent_run_dao = AgentRunDAO()
 
     def source(self, opportunity_id: str) -> AgentRun:
         """Start AI sourcing for an opportunity. Returns a handle to the run."""
@@ -158,7 +157,3 @@ class OpportunityService:
         self._runtime.run(run, _generate())
         return run
 
-    def cancel_active_runs(self, opportunity_id: str) -> None:
-        """Cancel all active agent runs for an opportunity."""
-        for run in self._agent_run_dao.list_active_by_external_id(opportunity_id):
-            self._agent_run_dao.cancel(run.id)

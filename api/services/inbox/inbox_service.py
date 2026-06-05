@@ -6,7 +6,7 @@ from datetime import datetime, timezone, timedelta
 from typing import List
 
 from api.config import get_inbox_scan_days, get_inbox_scan_batch_size, get_inbox_scan_keywords
-from api.db import InboxEmailDAO, EmailOpportunityDAO, AgentRunDAO
+from api.db import InboxEmailDAO, EmailOpportunityDAO
 from api.services.ai import AgentName, AgentRunError, AgentRun, runtime
 
 logger = logging.getLogger("uvicorn.error")
@@ -17,7 +17,6 @@ class InboxService:
     def __init__(self) -> None:
         self._email_dao = InboxEmailDAO()
         self._email_opp_dao = EmailOpportunityDAO()
-        self._agent_run_dao = AgentRunDAO()
 
     def build_scan_query(self) -> str:
         keywords = get_inbox_scan_keywords()
@@ -34,7 +33,7 @@ class InboxService:
 
     def list_active_scans(self):
         return [
-            run for run in self._agent_run_dao.list_active_by_agent_name(AgentName.INBOX_SCAN)
+            run for run in runtime.list_active_by_agent_name(AgentName.INBOX_SCAN)
             if run.meta is not None
         ]
 

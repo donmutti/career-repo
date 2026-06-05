@@ -124,9 +124,9 @@ class InboxEmailDAO(BaseEntityDAO[InboxEmail]):
         }
 
     def last_scanned_at(self) -> Optional[str]:
-        """Return the created_at of the most recent successful inbox scan, or None."""
+        """Return the created_at of the most recently created inbox_email row, or None if inbox is empty."""
         cursor = self._execute(
-            "select created_at as ts from agent_run where agent = 'scan-inbox' and status = 'completed' order by created_at desc limit 1"
+            "select created_at as ts from inbox_email order by created_at desc limit 1"
         )
         row = cursor.fetchone()
         return row["ts"] if row else None

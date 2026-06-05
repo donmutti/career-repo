@@ -22,7 +22,6 @@ from .entities import (
     Comment, CommentVersion,
     AttachmentType, Attachment,
     InboxEmail,
-    AgentRun,
     Currency, WorkPermitType,
 )
 
@@ -55,8 +54,6 @@ __all__ = [
     "Comment", "CommentVersion",
     # Entities — inbox
     "InboxEmail",
-    # Entities — agent run
-    "AgentRun",
     # Types
     "Currency", "WorkPermitType",
 ]

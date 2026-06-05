@@ -5,12 +5,12 @@ from pathlib import Path
 from typing import Any, AsyncGenerator, Coroutine, Dict, List, Optional
 
 from .agent_run import AgentRun, AgentRunEvent, AgentRunObserver, AgentRunResult
-from .agent_run_store import AgentRunStatus, AgentRunStore
+from .agent_run_store import AgentRunRecord, AgentRunStatus, InMemoryAgentRunStore
 from .agent_sdk import AgentSDK, AgentSDKPermissionMode
 
 
 class AgentRuntime:
-    """Container for agent runs. Owns SDK config, agent run store, and task registry.
+    """Container for agent runs. Owns SDK config, in-memory run store, and task registry.
 
     One-shot APIs:
         generate()          — creates AgentRun, runs it to completion, returns AgentRunResult
@@ -24,13 +24,12 @@ class AgentRuntime:
     def __init__(
             self,
             sdk: AgentSDK,
-            store: AgentRunStore,
             prompts_dir: Path,
             tool_allowlist: Dict[str, List[str]],
             observer: Optional[AgentRunObserver] = None
     ) -> None:
         self._sdk = sdk
-        self._store = store
+        self._store = InMemoryAgentRunStore()
         self._prompts_dir = prompts_dir
         self._tool_allowlist = tool_allowlist
         self._observer = observer
@@ -86,6 +85,26 @@ class AgentRuntime:
     # ------------------------------------------------------------------
     # Multi-step APIs
     # ------------------------------------------------------------------
+
+    def get(self, run_id: str) -> Optional[AgentRunRecord]:
+        """Return the run record for a given run ID, or None if not found."""
+        return self._store.get(run_id)
+
+    def list(self) -> List[AgentRunRecord]:
+        """Return all run records, newest first."""
+        return self._store.list()
+
+    def list_active(self) -> List[AgentRunRecord]:
+        """Return all currently running run records."""
+        return self._store.list_active()
+
+    def list_active_by_agent_name(self, agent: str) -> List[AgentRunRecord]:
+        """Return active runs for a specific agent name."""
+        return self._store.list_active_by_agent_name(agent)
+
+    def list_active_by_external_id(self, external_id: str) -> List[AgentRunRecord]:
+        """Return active runs for a specific external ID."""
+        return self._store.list_active_by_external_id(external_id)
 
     def create(self, agent_name: str, external_id: Optional[str] = None) -> AgentRun:
         # Create an AgentRun record
@@ -147,9 +166,12 @@ class AgentRuntime:
         self._tasks[run_id] = task
 
     async def cancel(self, run_id: str) -> None:
-        """Cancels an active run by cancelling its asyncio task."""
+        """Cancels an active run by cancelling its asyncio task and marking it cancelled in the store."""
         task = self._tasks.get(run_id)
 
-        # Cancel only if the task is still running
+        # Cancel the task if still running
         if task and not task.done():
             task.cancel()
+
+        # Mark the run cancelled in the store regardless of task state
+        self._store.cancel(run_id)

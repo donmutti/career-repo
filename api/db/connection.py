@@ -83,7 +83,6 @@ def _hydrate_from_dump(conn: sqlite3.Connection, dump_path: Path):
 
     _insert_table_data(conn, "inbox_email", dump.get("inbox_email", []))
     _insert_table_data(conn, "email_opportunity", dump.get("email_opportunity", []))
-    _insert_table_data(conn, "agent_run", dump.get("agent_run", []))
 
     _insert_table_data(conn, "opportunity_embedding", dump.get("opportunity_embedding", []))
     _insert_table_data(conn, "opportunity_similarity", dump.get("opportunity_similarity", []))

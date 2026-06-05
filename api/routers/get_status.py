@@ -3,12 +3,10 @@
 from fastapi import APIRouter
 
 from .. import __version__
-from ..db import AgentRunDAO
 from ..db.connection import get_db_connection
+from ..services.ai import runtime
 
 router = APIRouter(prefix="/system", tags=["system"])
-
-agent_run_dao = AgentRunDAO()
 
 
 @router.get("/status")
@@ -27,15 +25,10 @@ def get_system_status():
     except Exception:
         has_profile = False
 
-    try:
-        active_runs = len(agent_run_dao.list_active())
-    except Exception:
-        active_runs = 0
-
     return {
         "status": "healthy" if db_status == "connected" else "unhealthy",
         "version": __version__,
         "database": db_status,
         "profile_exists": has_profile,
-        "active_agent_runs": active_runs,
+        "active_agent_runs": len(runtime.list_active()),
     }

@@ -1,4 +1,3 @@
-from .agent import AgentRun
 from .base import BaseEntity, EntityVersion, VersionedEntity
 from .inbox import InboxEmail, EmailOpportunity
 from .opportunity import (
@@ -27,5 +26,4 @@ __all__ = [
     "OpportunityVersion", "Opportunity", "OpportunitySimilarity",
     "AttachmentType", "Attachment", "Comment", "CommentVersion",
     "InboxEmail", "EmailOpportunity",
-    "AgentRun",
 ]

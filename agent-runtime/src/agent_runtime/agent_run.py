@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 from pydantic import BaseModel
 
-from .agent_run_store import AgentRunStatus, AgentRunStore
+from .agent_run_store import AgentRunStatus, InMemoryAgentRunStore
 from .agent_sdk import AgentSDK, AgentSDKOptions, AgentSDKPermissionMode, AgentSdkAssistantMessage, AgentSdkResultMessage, AgentSdkTextBlock, AgentSdkToolUseBlock
 
 
@@ -89,7 +89,7 @@ class AgentRun:
             self,
             run_id: str,
             agent_name: str,
-            store: AgentRunStore,
+            store: InMemoryAgentRunStore,
             sdk: AgentSDK,
             prompts_dir: Path,
             tool_allowlist: Dict[str, List[str]],

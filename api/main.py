@@ -16,7 +16,6 @@ from api.models.types import EntityNotFoundError
 from api.config import get_api_host, get_api_port, get_ui_port
 from api.db import init_db
 from api.db.connection import close_db_connection
-from api.db.daos.agent.agent_run_dao import AgentRunDAO
 from api.db.daos.opportunity.base.opportunity_dao import OpportunityDAO
 from api.routers import opportunity, inbox, profile, agent, get_status
 from api.routers.profile import work_experience_projects
@@ -30,10 +29,7 @@ from api.routers.opportunity.opportunity import attachments_router
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup/shutdown events."""
     init_db()
-    agent_run_dao = AgentRunDAO()
     opp_dao = OpportunityDAO()
-    for run in agent_run_dao.list_active():
-        agent_run_dao.fail(run.id, "interrupted by server restart")
     opp_dao.reset_stuck_sourcing()
     yield
     close_db_connection()

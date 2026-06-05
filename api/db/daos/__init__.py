@@ -1,4 +1,3 @@
-from .agent import AgentRunDAO
 from .base import BaseEntityDAO, VersionedEntityDAO
 from .opportunity import (
     OpportunityDAO,
@@ -23,5 +22,4 @@ __all__ = [
     "ResumeDAO",
     "WorkExperienceDAO",
     "WorkExperienceProjectDAO",
-    "AgentRunDAO",
 ]

@@ -18,27 +18,20 @@ Mono-repo. One Python backend, one React frontend, one SQLite database.
 
 ```
 career-repo/
+├── agent-runtime/                        # Standalone agent runtime library
+│   └── src/agent_runtime/                # AgentRuntime, AgentRun, InMemoryAgentRunStore, AgentSDK
 ├── api/                                  # FastAPI backend
 │   ├── db/                               # Database access layer
-│   │   ├── daos/                         # DAO classes
-│   │   │   ├── base/                     # Base DAO classes
-│   │   │   ├── agent/                    # AgentRun DAO
-│   │   │   ├── inbox/                    # Inbox DAOs
-│   │   │   ├── opportunity/              # Opportunity DAOs (base/ + meta/)
-│   │   │   └── profile/                  # Profile DAOs
-│   │   ├── migrations/                   # SQL migration files
+│   │   ├── daos/                         # DAO classes (base/, inbox/, opportunity/, profile/)
+│   │   ├── migrations.py                 # Migration runner
 │   │   └── connection.py                 # DB connection and initialization
 │   ├── models/                           # Pydantic models
-│   │   ├── entities/                     # Entity models (base/, agent/, inbox/, opportunity/, profile/, timeline/)
-│   │   ├── dtos/                         # Request/response DTOs (base/, inbox/, opportunity/, profile/, timeline/)
+│   │   ├── entities/                     # Entity models (base/, inbox/, opportunity/, profile/)
+│   │   ├── dtos/                         # Request/response DTOs (base/, inbox/, opportunity/, profile/)
 │   │   └── types/                        # Shared enums and value objects
-│   ├── routers/                          # API endpoints
-│   │   ├── agent/                        # Agent run endpoints
-│   │   ├── inbox/                        # Inbox endpoints
-│   │   ├── opportunity/                  # Opportunity endpoints (base/ + meta/)
-│   │   └── profile/                      # Profile endpoints
+│   ├── routers/                          # API endpoints (agent/, inbox/, opportunity/, profile/)
 │   ├── services/                         # Business logic and AI
-│   │   ├── ai/                           # AI invocation + commands/
+│   │   ├── ai/                           # AI invocation + agents/
 │   │   └── files/                        # File writing service
 │   ├── config.py                         # Runtime configuration
 │   └── main.py                           # FastAPI entry point
@@ -47,7 +40,6 @@ career-repo/
 │   ├── data.json                         # Human-readable DB dump (committed)
 │   └── migrations/                       # SQL migration files
 ├── ui/                                   # React SPA
-│   ├── public/                           # Static assets
 │   ├── src/
 │   │   ├── app/                          # Domain modules
 │   │   │   ├── inbox/                    # Inbox pages, components, hooks, and models
@@ -59,6 +51,7 @@ career-repo/
 │   │   │   ├── AppRoutes.tsx             # Route definitions
 │   │   │   ├── Sidebar.tsx               # App sidebar component
 │   │   ├── shared/                       # Reusable, general-purpose components and utils
+│   │   │   ├── context/                  # Shared React contexts
 │   │   │   ├── controls/                 # Reusable, general-purpose components (buttons, inputs, etc.)
 │   │   │   └── utils/                    # Reusable, general-purpose utilities (formatting, etc.)
 │   │   ├── services/                     # API clients, API queries
@@ -72,8 +65,9 @@ career-repo/
 
 Tech stack:
 
+- Agent Runtime: `agent-runtime` — standalone local library; `claude-agent-sdk` for Claude invocation
 - DB: SQLite, append-only versioning, UUID v4 identifiers
-- API: Python 3.13, FastAPI, Pydantic, uv, raw `sqlite3` for data access, `claude-agent-sdk` for AI, `sentence-transformers` + `sqlite-vec` for local embeddings
+- API: Python 3.13, FastAPI, Pydantic, uv, raw `sqlite3` for data access, `sentence-transformers` + `sqlite-vec` for local embeddings
 - UI: TypeScript, React 19, Vite, React Router, TanStack Query, Tailwind 4, Radix UI, Lucide
 
 ---
@@ -124,7 +118,7 @@ Profile (versioned entity) - central user entity:
 - work_permits: WorkPermit[] (optional)
 - job_preferences: string (optional)
 - job_dealbreakers: string (optional)
-- voice_settings: string
+- voice_settings: string — defaults to empty string
 - avatar_file_name: string (optional)
 
 WorkPermit (value object):
@@ -293,22 +287,135 @@ InboxEmail (immutable entity) — an email surfaced from the user's inbox:
 - subject: string
 - body: string
 
-### 4.10. AgentRun
+---
 
-AgentRun (mutable entity) — log of a single AI invocation:
+## 5. Agent Runtime
 
-- agent: string — command file name (e.g. `source-opportunity.md`)
-- status: string — `running` | `completed` | `cancelled` | `failed`
-- opportunity_id: UUID (optional) — associated opportunity
-- output: string (optional) — final assistant text
-- completed_at: timestamp (optional)
-- meta: JSON object (optional) — arbitrary agent-specific progress data (e.g. `{ current: 50, total: 300 }` for batch scans)
+Standalone library extracted to `agent-runtime/`. Contains all agent invocation machinery — no dependency on the API's DB layer. Imported by `api/services/ai/` as the sole interface for running Claude agents. Source lives in `agent-runtime/src/agent_runtime/`.
+
+The singleton is instantiated in `api/services/ai/__init__.py`:
+
+```python
+runtime = AgentRuntime(sdk=ClaudeAgentSDK(), prompts_dir=_PROMPTS_DIR, tool_allowlist=_TOOL_ALLOWLIST)
+```
+
+### 5.1. InMemoryAgentRunStore
+
+All agent run state lives in memory. No DB table. Runs are cleared on API restart.
+
+`AgentRunStatus` (enum): `RUNNING` | `COMPLETED` | `FAILED` | `CANCELLED`
+
+`AgentRunRecord` (dataclass) — minimal run record:
+
+- `id: str` — UUID v4
+- `agent: str` — command file name (e.g. `source-opportunity.md`)
+- `status: AgentRunStatus`
+- `created_at: datetime`
+- `external_id: str` (optional) — associated entity ID (e.g. opportunity ID)
+- `output: str` (optional) — final assistant text
+- `completed_at: datetime` (optional)
+- `meta: dict` (optional) — arbitrary progress data (e.g. `{ current: 50, total: 300 }` for batch scans)
+
+`InMemoryAgentRunStore` — in-memory dict of `AgentRunRecord` keyed by `run_id`:
+
+- `create(agent, external_id?) -> AgentRunRecord`
+- `get(run_id) -> AgentRunRecord | None`
+- `list() -> list[AgentRunRecord]` — newest first
+- `list_active() -> list[AgentRunRecord]`
+- `list_active_by_agent_name(agent) -> list[AgentRunRecord]`
+- `list_active_by_external_id(external_id) -> list[AgentRunRecord]`
+- `complete(run_id, output) -> None`
+- `fail(run_id, output) -> None`
+- `cancel(run_id) -> None`
+- `set_meta(run_id, meta) -> None`
+
+### 5.2. AgentRun — live run handle
+
+`AgentRun` — live run handle constructed by `AgentRuntime.create()`; injected into background coroutines:
+
+- `run_id: str`
+- `_status: AgentRunStatus | None` — `None` until terminal; readable in-memory without a store round-trip
+- `set_meta(meta: dict) -> None`
+- `is_running() -> bool` — returns `True` if store record status is still `RUNNING`
+- `complete(output: str = "") -> None` — sets `_status = COMPLETED`, updates store
+- `fail(output: str = "") -> None` — sets `_status = FAILED`, updates store
+- `async generate(payload, expects_json?, timeout?, permission_mode?, max_turns?, retries?) -> AgentRunResult` — runs this agent to completion; retries on `AgentRunError` up to `retries` times
+- `async generate_stream(payload, timeout?, permission_mode?, max_turns?) -> AsyncGenerator[AgentRunEvent, None]` — runs this agent and yields events
+
+`AgentRunResult` (Pydantic BaseModel) — return envelope for `generate()`:
+
+- `run_id: str`
+- `model: str`
+- `duration_ms: int`
+- `cost_usd: float`
+- `output: Any` — parsed JSON (dict/list) by default; raw str if `expects_json=False`
+
+`AgentRunEvent` (Pydantic BaseModel) — single stream event:
+
+- `type: AgentRunEventType` — `text` | `tool_use` | `done` | `cancelled` | `error`
+- `data: Any` — for `done`: `AgentRunDoneData`; for `cancelled`/`error`: dict with `run_id` and optional `message`
+
+Every stream ends with exactly one terminal event: `done`, `cancelled`, or `error`.
+
+`AgentRunError` — raised on SDK error, timeout, or unparseable output.
+
+### 5.3. AgentRuntime
+
+`AgentRuntime` — container for the in-memory store, SDK config, and task registry. One-shot APIs create and run a single invocation. Multi-step APIs separate creation from execution so coroutines can drive their own lifecycle.
+
+Constructor:
+
+- `__init__(sdk, prompts_dir, tool_allowlist, observer?)` — owns `InMemoryAgentRunStore` directly; no external store injection
+
+One-shot methods:
+
+- `async generate(agent_name, payload, external_id?, expects_json?, timeout?, permission_mode?, max_turns?, retries?) -> AgentRunResult` — creates run, runs to completion, returns result
+- `async generate_stream(agent_name, payload, external_id?, timeout?, permission_mode?, max_turns?) -> AsyncGenerator[AgentRunEvent, None]` — creates run, yields events
+
+Multi-step methods:
+
+- `create(agent_name, external_id?) -> AgentRun` — creates `AgentRunRecord` in store; fires `observer.on_run_start(run)` if observer set; returns `AgentRun` handle
+- `run(run: AgentRun, coro: Coroutine) -> None` — starts coroutine as background `asyncio.Task`; wrapper catches `CancelledError` and `Exception`, marks run failed if not already terminal, fires observer hooks, removes task from registry
+- `async cancel(run_id) -> None` — looks up task in registry, calls `task.cancel()`, marks store record cancelled
+
+Store proxy methods (delegate to `InMemoryAgentRunStore`):
+
+- `get(run_id) -> AgentRunRecord | None`
+- `list() -> list[AgentRunRecord]`
+- `list_active() -> list[AgentRunRecord]`
+- `list_active_by_agent_name(agent) -> list[AgentRunRecord]`
+- `list_active_by_external_id(external_id) -> list[AgentRunRecord]`
+
+`AgentRunObserver` (Protocol) — optional observer:
+
+- `on_run_start(run: AgentRun) -> None`
+- `on_run_complete(run_id: str) -> None`
+- `on_run_fail(run_id: str) -> None`
+
+### 5.4. Per-command tool allowlist
+
+Injected as `tool_allowlist` constructor arg; resolved from the command file name when opening the SDK stream:
+
+- `inbox-preflight.md` — `mcp__gmail__*` (Gmail MCP tools only)
+- `scan-inbox.md` — `mcp__gmail__*` (Gmail MCP tools only)
+- `extract-opportunity-from-email.md` — none
+- `source-opportunity.md` — `WebFetch`
+- `generate-attachment.md` — none
+- `parse-work-experience-from-resume.md` — none
+
+### 5.5. Output parsing
+
+JSON-returning agents instruct Claude in the system prompt to return **only** a JSON object or array — no prose, no markdown fences. `generate()` parses strictly via `json.JSONDecoder().raw_decode()`; on parse failure, `AgentRunError` is raised. Pass `expects_json=False` to return raw assistant text (used for attachment generation).
+
+### 5.6. Authentication
+
+SDK uses the credentials configured by the Claude Code CLI (subscription login or `ANTHROPIC_API_KEY` env var). The repo does not manage auth.
 
 ---
 
-## 5. DB
+## 6. DB
 
-### 5.1. Schema
+### 6.1. Schema
 
 SQLite 3. `PRAGMA foreign_keys = ON` at connection time. Schema lives in `db/migrations/`, applied on first run via a migration runner.
 
@@ -486,16 +593,6 @@ Versioned entities: two-table pattern — `<entity>` holds identity table (`id`,
 - status TEXT not null default 'pending'
 - opportunity_id TEXT (references `opportunity`, on delete set null)
 
-`agent_run` — mutable log of AI invocations:
-
-- id TEXT primary key
-- agent TEXT not null
-- status TEXT not null default 'running'
-- opportunity_id TEXT (references `opportunity`, on delete set null)
-- output TEXT
-- completed_at TEXT
-- created_at TEXT not null
-
 `opportunity_embedding` — stores a packed float32 vector for each sourced opportunity; used for similarity detection:
 
 - opportunity_id TEXT primary key (references `opportunity`, on delete cascade)
@@ -515,26 +612,27 @@ Versioned entities: two-table pattern — `<entity>` holds identity table (`id`,
 Indices:
 
 - `<entity>_id` + `active_to` on all version tables
-- `type`, `opened_on` on `opportunity_version`; `type` on `opportunity`
+- `status` on `opportunity_version`
+- `opened_on` on `opportunity_version`
+- `type` on `opportunity`
 - `opportunity_id` on `comment`, `attachment`
 - `profile_id` on `work_experience`, `resume`
 - `work_experience_id` on `work_experience_project`
 - `external_id`, `received_at` on `inbox_email`
 - `inbox_email_id` on `email_opportunity`
-- `status` on `agent_run`
 - `id_a`, `id_b` on `opportunity_similarity` (separate indices)
 
 ---
 
-## 6. API
+## 7. API
 
-### 6.1. Models
+### 7.1. Models
 
 Python 3.13+, Pydantic v2. Naming: snake_case for fields; PascalCase for classes; UPPER_SNAKE_CASE for enum constants. Enums extend `str, Enum`; values are lowercase snake_case strings (serialized identically at API boundaries and in DB).
 
 Source lives in `api/models/`.
 
-#### 6.1.1. Enums
+#### 7.1.1. Enums
 
 WorkPermitType (enum): CITIZENSHIP | RESIDENCY | VISA | OTHER
 
@@ -550,7 +648,7 @@ NetworkingType (enum): MEET | ATTEND | HOST
 LearningType (enum): BOOK | ARTICLE | MEDIA | REPOSITORY | STUDY | OTHER
 AttachmentType (enum): CV | MOTIVATION | STUDY | PORTFOLIO | OTHER
 
-#### 6.1.2. Value objects
+#### 7.1.2. Value objects
 
 WorkPermit (Pydantic BaseModel):
 
@@ -558,7 +656,7 @@ WorkPermit (Pydantic BaseModel):
 - country: str
 - description: str (optional)
 
-#### 6.1.3. Entity models
+#### 7.1.3. Entity models
 
 BaseEntity (Pydantic BaseModel) — base for all entities:
 
@@ -586,7 +684,7 @@ ProfileVersion (EntityVersion):
 - work_permits: list[WorkPermit]
 - job_preferences: str (optional)
 - job_dealbreakers: str (optional)
-- voice_settings: str
+- voice_settings: str — defaults to empty string
 - avatar_file_name: str (optional)
 
 Profile (VersionedEntity[ProfileVersion])
@@ -713,16 +811,7 @@ InboxEmail (BaseEntity):
 - subject: str
 - body: str
 
-AgentRun (BaseEntity):
-
-- agent: str
-- status: str
-- opportunity_id: str (optional)
-- output: str (optional)
-- completed_at: datetime (optional)
-- meta: dict (optional) — arbitrary agent-specific progress data; stored as JSON
-
-### 6.2. DAOs
+### 7.2. DAOs
 
 Raw `sqlite3`, no ORM. Connection opened once at startup with `PRAGMA foreign_keys = ON` and `row_factory = sqlite3.Row`. All public methods accept and return domain model instances — no raw dicts cross public boundaries.
 
@@ -731,7 +820,7 @@ Source lives in `api/db/`.
 `init_db()` — called at startup: creates `data.db` from `db/migrations/` if absent, then hydrates from `data.json` if available.
 `dump_db()` — called after every mutation: serializes the full DB to `data.json` atomically via temp file + `os.replace()`.
 
-#### 6.2.1. Base DAOs
+#### 7.2.1. Base DAOs
 
 BaseEntityDAO[T: BaseEntity] (ABC, Generic[T]):
 
@@ -750,7 +839,7 @@ VersionedEntityDAO[T: BaseEntity] (BaseEntityDAO[T]):
 - `_get_latest_version_row(id): dict | None`
 - `_version_to_dict(version): dict` (abstract)
 
-#### 6.2.2. Entity DAOs
+#### 7.2.2. Entity DAOs
 
 ProfileDAO (VersionedEntityDAO[Profile]):
 
@@ -759,7 +848,7 @@ ProfileDAO (VersionedEntityDAO[Profile]):
 - `update(profile_id, version): Profile | None`
 - `delete(id?): None` — not implemented
 
-WorkExperienceDAO (BaseEntityDAO[WorkExperience]):
+WorkExperienceDAO (VersionedEntityDAO[WorkExperience]):
 
 - `create(profile_id, company, role, start_date?, end_date?, description?, skills?): WorkExperience`
 - `get(we_id): WorkExperience | None`
@@ -792,12 +881,13 @@ OpportunityDAO (VersionedEntityDAO[Opportunity]):
 - `set_sourcing_started(opp_id, run_id): None`
 - `set_sourcing_completed(opp_id): None`
 - `set_avatar_url(opp_id, avatar_url): None`
+- `set_url(opp_id, url): None`
 - `reset_stuck_sourcing(): None` — clears stale sourcing state on startup
 - `delete(opp_id): None`
 
 CommentDAO (VersionedEntityDAO[Comment]):
 
-- `create(opportunity_id, version): Comment`
+- `create(opportunity_id, version, created_at?): Comment` — optional `created_at` overrides timestamp; used when backdating absorbed comments
 - `get(comment_id): Comment | None`
 - `list_for_opportunity(opportunity_id): list[Comment]`
 - `relink(comment_id, new_opportunity_id): None` — reassigns a comment to a different opportunity; used during absorb
@@ -814,9 +904,10 @@ InboxEmailDAO (BaseEntityDAO[InboxEmail]):
 - `create(external_id, received_at, from_address, to_address, subject, body): InboxEmail`
 - `get(email_id): InboxEmail | None`
 - `get_by_external_id(external_id): InboxEmail | None`
+- `get_known_external_ids(external_ids): set[str]` — returns the subset of given IDs already stored in the DB
 - `list_all(from_date?, to_date?): list[InboxEmail]`
 - `counts_by_window(today): dict` — returns per-window counts and all-sorted flags for `all`, `today`, `yesterday`, `last7`, `last30`
-- `last_scanned_at(): str | None`
+- `last_scanned_at(): str | None` — returns `created_at` of the most recently created `inbox_email` row, or `None` if inbox is empty
 - `clear(): None` — deletes all inbox emails (cascade deletes email_opportunity)
 - `delete(email_id): None`
 
@@ -827,26 +918,14 @@ EmailOpportunityDAO (BaseEntityDAO[EmailOpportunity]):
 - `list_by_email(inbox_email_id): list[EmailOpportunity]`
 - `set_status(eo_id, status, opportunity_id?): EmailOpportunity`
 - `sorted_counts(): dict` — returns `{email_id: [sorted, total]}` for all emails
+- `decline_pending_for_emails(inbox_email_ids): int` — sets all `pending` email opportunities to `skipped` for the given emails; returns count of updated rows
 - `delete(eo_id): None`
-
-AgentRunDAO (BaseEntityDAO[AgentRun]):
-
-- `create(agent, opportunity_id?): AgentRun` — status defaults to `running`
-- `get(run_id): AgentRun | None`
-- `list(): list[AgentRun]`
-- `list_active(): list[AgentRun]`
-- `list_active_for_opportunity(opportunity_id): list[AgentRun]`
-- `complete(run_id, output): None`
-- `cancel(run_id): None`
-- `fail(run_id, output): None`
-- `set_meta(run_id, meta: dict): None` — updates the `meta` field; used for progress reporting during long-running scans
-- `delete(run_id): None`
 
 OpportunityEmbeddingDAO (plain class, not BaseEntityDAO):
 
 - `upsert(opportunity_id, vector: list[float]): None` — insert or replace embedding; vector packed as float32 BLOB
 - `get(opportunity_id): list[float] | None` — returns unpacked vector
-- `find_similar(opportunity_id, top_k=5, min_similarity=0.85): list[tuple[str, float]]` — returns `[(similar_id, similarity), ...]`; excludes the query opportunity and any pairs already dismissed (dismissed_at IS NOT NULL); uses `sqlite-vec` cosine distance
+- `find_similar(opportunity_id, top_k=5, min_similarity=0.5): list[tuple[str, float]]` — returns `[(similar_id, similarity), ...]`; excludes the query opportunity and any pairs already dismissed (dismissed_at IS NOT NULL); uses `sqlite-vec` cosine distance
 
 OpportunitySimilarityDAO (plain class, not BaseEntityDAO):
 
@@ -856,183 +935,50 @@ OpportunitySimilarityDAO (plain class, not BaseEntityDAO):
 - `dismiss(id_a, id_b): None` — sets dismissed_at; normalises key order
 - `delete_pair(id_a, id_b): None` — hard delete; normalises key order; called after confirmed absorb
 
-### 6.3. Services
+### 7.3. Services
 
-#### 6.3.1. FileService
+#### 7.3.1. FileService
 
-Handles attachment file writing and rendering. Initialized with `attachment_root: Path`. Source lives in `api/services/files/`.
+Handles attachment file writing and rendering. Initialized with `artifact_root: Path`. Source lives in `api/services/files/`.
 
 FileService:
 
-- `write_md(relative_path, md_content): Path` — writes Markdown file under attachment_root
-- `write_pdf(relative_path, md_content): Path` — renders Markdown to PDF via weasyprint; raises `RuntimeError` if weasyprint unavailable
+- `write_md(relative_path, md_content): Path` — writes Markdown file under `artifact_root`
+- `write_pdf(relative_path, md_content): Path` — renders Markdown to PDF using `fpdf2` (`FPDF`); writes under `artifact_root`
 
-#### 6.3.2. InboxService
+#### 7.3.2. InboxService
 
 Orchestrates inbox scanning. Source lives in `api/services/inbox/`. Instantiated as a module-level singleton in `api/routers/inbox/scan_inbox.py`.
 
 InboxService:
 
 - `build_scan_query() -> str` — builds the Gmail search query from configured keywords and `last_scanned_at`
-- `list_active_scans() -> list[AgentRun]` — returns active `scan-inbox.md` runs that have meta set
-- `start_scan() -> AgentRunHandle` — delegates to `runtime.submit("scan-inbox.md", ...)`, sets initial meta `{ current: 0, total: 0, preparing: true }` on the returned handle, and returns it; `AgentRun` creation is owned by `AgentRuntime.submit()`
+- `list_active_scans() -> list[AgentRunRecord]` — returns active `scan-inbox.md` runs that have meta set
+- `start_scan() -> AgentRun` — calls `runtime.create("scan-inbox.md")`, sets initial meta `{ current: 0, total: 0, preparing: true }` on the returned run, then calls `runtime.run(run, coro)` and returns the run
 
-The scan coroutine `_run_scan(ctx: AgentRunHandle)` contains all scan logic: probe (via `claude.generate("inbox-preflight", ...)`), batch loop (via `claude.generate("scan-inbox", ...)`), email/opportunity persistence. All `AgentRun` state transitions go through `AgentRunHandle`.
+The scan coroutine `_run_scan(run: AgentRun)` contains all scan logic: probe (via `runtime.generate("inbox-preflight", ...)`), batch loop (via `runtime.generate("scan-inbox", ...)`), email/opportunity persistence. All `AgentRunRecord` state transitions go through `AgentRun`.
 
-#### 6.3.3. EmbeddingService
+#### 7.3.3. EmbeddingService
 
-Handles local text embedding for similarity detection. Separate from `AgentExecutor` — has no involvement with the Claude agent SDK. Source lives in `api/services/ai/embedding_service.py`.
+Handles local text embedding for similarity detection. No involvement with the Claude agent SDK. Source lives in `api/services/ai/embedding_service.py`.
 
 Uses `sentence-transformers` to load `all-MiniLM-L6-v2` from HF Hub (downloaded to `.cache/huggingface/` in the repo root on first use, ~22 MB, fully offline thereafter). Inference runs in a thread pool to avoid blocking the event loop. No API key required.
 
-Instantiated as a module-level singleton `embedding` in `api/services/ai/__init__.py` alongside the existing `claude` singleton.
+Instantiated as a module-level singleton `embedding` in `api/services/ai/__init__.py` alongside the `runtime` singleton.
 
 EmbeddingService:
 
 - `async embed(text: str): list[float]` — encodes text to a 384-dim normalised float vector
 
-#### 6.3.4. AgentExecutor
-
-##### 6.3.4.1. Invocation
-
-Claude invoked in-process via the `claude-agent-sdk` Python SDK. Source lives in `api/services/ai/`. Prompt templates live in `api/services/ai/commands/` as `.md` files; each file is the **system prompt** for one operation. Structured input is passed as the **user message**, wrapped in `<input>` tags, and the prompt explicitly instructs Claude to treat tag contents as untrusted data.
-
-`AgentError` — raised on SDK error, timeout, or unparseable output.
-
-`AgentRunHandle` — injected into coroutines started via `create_task()`; provides the only sanctioned interface for `AgentRun` state transitions inside multi-step orchestration loops:
-
-- `run_id: str`
-- `_status: Optional[str]` — `None` | `"completed"` | `"failed"`; set by `complete()` and `fail()` respectively; readable in-memory without a DB round-trip
-- `set_meta(meta: dict) -> None` — update progress metadata
-- `is_cancelled() -> bool` — returns `True` if run status is no longer `running` (or record is missing); used as the loop exit check before each batch
-- `complete(output: str = "") -> None` — sets `_status = "completed"`, marks run completed in DB
-- `fail(output: str = "") -> None` — sets `_status = "failed"`, marks run failed in DB
-
-`AgentResult` (Pydantic BaseModel) — return envelope for collected (non-streaming) calls:
-
-- output: Any — parsed result (dict, list, str, depending on method)
-- cost_usd: float
-- duration_ms: int
-- model: str
-- run_id: str — id of the persisted `AgentRun`
-
-`AgentSDKOptions` (dataclass) — options passed to `AgentSDK.query()`:
-
-- `permission_mode: str`
-- `max_turns: int`
-
-`AgentSDK` (Protocol) — SDK abstraction injected at construction; concrete implementation is `ClaudeAgentSDK` in `api/services/ai/claude_agent_sdk_adapter.py`:
-
-- `async query(prompt, system, tools, options: AgentSDKOptions) -> AsyncIterator[SDKMessage]`
-
-`AgentObserver` (Protocol) — optional observer injected into `create_task()`; fires after terminal state transitions in `_wrapper`:
-
-- `on_run_start(run) -> None`
-- `on_run_complete(run_id: str) -> None`
-- `on_run_fail(run_id: str) -> None`
-
-All Claude invocations flow through one private primitive: `_generate_stream()`. It owns the entire invocation lifecycle — `AgentRun` persistence, SDK invocation, tool allowlist resolution, timeout, cancellation, and event emission. No other code path invokes the SDK directly.
-
-`async _generate_stream(command_path, payload, opportunity_id?): AsyncIterator[StreamEvent]` — invocation contract:
-
-1. Reads the command file; uses its contents as `system_prompt`.
-2. Serializes `payload` to JSON and sends as the user message: `<input>{json}</input>`.
-3. Resolves the tool allowlist from `command_path` via `self._tool_allowlist`.
-4. Creates an `AgentRun` record (status `running`); registers the running task in an in-memory `run_id` to `asyncio.Task` map.
-5. Invokes `self._sdk.query()` with `allowed_tools`, `permission_mode='bypassPermissions'`, `max_turns=30`, and a per-operation timeout (see public surface below).
-6. Iterates SDK messages via duck typing; yields a `StreamEvent` for each text chunk, tool use, and tool result; accumulates assistant text and tracks `total_cost_usd` from the final result message.
-7. On completion: updates `AgentRun` with output and `completed_at`; emits final `done` event carrying cost/duration/model/run_id; removes task from registry.
-8. On failure or timeout: marks `AgentRun` `failed`; emits `error` event with `run_id` and `message`; removes task from registry; raises `AgentError`.
-9. On cancellation: marks `AgentRun` `cancelled`; emits `cancelled` event with `run_id`; removes task from registry; re-raises `asyncio.CancelledError` after the event has been yielded, so any non-streaming caller still sees the exception.
-
-##### 6.3.4.2. Streaming
-
-`StreamEvent` (Pydantic BaseModel) — single event in the underlying stream; emitted by `_generate_stream()` and forwarded to clients by `generate_stream()`:
-
-- type: `text` | `tool_use` | `tool_result` | `done` | `cancelled` | `error`
-- data: str | dict — for `done`, contains `cost_usd`, `duration_ms`, `model`, `run_id`; for `cancelled`, contains `run_id`; for `error`, contains `run_id` and `message`
-
-Every stream ends with exactly one terminal event: `done`, `cancelled`, or `error`. Clients treat the receipt of any terminal event as end-of-stream and the absence of a terminal event before connection close as an abnormal termination (network drop, server crash) distinct from cancellation.
-
-`generate_stream()` delegates to `_generate_stream()` and yields events verbatim. Used by the SSE endpoint (`POST /agent-runs`). It does not parse output; the client is responsible for any aggregation.
-
-##### 6.3.4.3. Public surface
-
-`AgentExecutor` constructor:
-
-- `__init__(repo: AgentRunDAO, sdk: AgentSDK, prompts_dir: Path, tool_allowlist: Dict[str, List[str]])` — all dependencies injected; `prompts_dir` and `tool_allowlist` are always injected together
-
-`AgentExecutor` methods:
-
-- `async generate(agent, payload, opportunity_id?, raw_text?, run_id?, timeout?): AgentResult` — run an agent to completion; resolves command path from agent name; raises `AgentError` if agent unknown
-- `async generate_stream(agent, payload, opportunity_id?, timeout?): AsyncIterator[StreamEvent]` — run an agent and yield `StreamEvent`s; resolves command path from agent name; raises `AgentError` if agent unknown
-- `create_task(run_id, coro_factory: (AgentRunHandle) -> Coroutine, handle?: AgentRunHandle, observer?: AgentObserver): AgentRunHandle` — builds an `AgentRunHandle` (or uses provided `handle`), calls `coro_factory(ctx)` to obtain the coroutine, registers it in the task registry under `run_id`, and starts it; the wrapper catches `CancelledError` and generic `Exception`, marks the run failed if not already terminal, fires observer hooks in `finally` via `ctx._status`; returns the handle
-- `async cancel(run_id): None`
-
-`generate()` consumes the full event stream from `_generate_stream()`, concatenates `text` events into a single assistant string, reads the final `done` event for cost/duration/model/run_id, parses the assistant string (JSON by default, raw text if `raw_text=True`), and returns `AgentResult`. Domain-specific payload construction is the caller's responsibility.
-
-`cancel(run_id)` looks up the task in the registry and calls `task.cancel()`; the SDK aborts the in-flight request. Used by `DELETE /agent-runs/{id}`.
-
-The singleton is exposed as `claude` in `api/services/ai/__init__.py`:
-
-```python
-claude = AgentExecutor(
-    repo=AgentRunDAO(),
-    sdk=ClaudeAgentSDK(),
-    prompts_dir=Path(__file__).parent / "commands",
-    tool_allowlist={...},
-)
-```
-
-##### 6.3.4.4. Per-command tool allowlist
-
-Injected as `tool_allowlist` constructor arg; resolved by `_generate_stream()` from the command file name:
-
-- `inbox-preflight.md` — `mcp__gmail__*` (Gmail MCP tools only)
-- `scan-inbox.md` — `mcp__gmail__*` (Gmail MCP tools only)
-- `extract-opportunity-from-email.md` — none
-- `source-opportunity.md` — `WebFetch`
-- `generate-attachment.md` — none
-- `parse-work-experience-from-resume.md` — none
-
-##### 6.3.4.5. Output parsing
-
-JSON-returning commands instruct Claude in the system prompt to return **only** a JSON object or array — no prose, no markdown fences. `generate()` parses this strictly via `json.JSONDecoder().raw_decode()`; on parse failure, `AgentError` is raised. Pass `raw_text=True` to skip parsing and return the assistant text unmodified (used for attachment generation).
-
-##### 6.3.4.6. Authentication
-
-SDK uses the credentials configured by the Claude Code CLI (subscription login or `ANTHROPIC_API_KEY` env var). The repo does not manage auth.
-
-#### 6.3.5. AgentRuntime
-
-Infrastructure layer between domain services and `AgentExecutor`. Owns `AgentRun` creation for managed multi-step tasks and provides a uniform `submit()` entry point. Source lives in `api/services/runtime/agent_runtime.py`.
-
-Constructor:
-
-- `__init__(executor: AgentExecutor, repo: AgentRunDAO, observer?: AgentObserver)` — all dependencies injected; observer is optional
-
-AgentRuntime methods:
-
-- `submit(agent, coro_factory: (AgentRunHandle) -> Coroutine, opportunity_id?): AgentRunHandle` — creates an `AgentRun` via the repo, constructs an `AgentRunHandle`, fires `observer.on_run_start(run)` if observer is present, calls `executor.create_task(run_id, coro_factory, handle=handle, observer=observer)`, and returns the handle
-- `async cancel(run_id): None` — delegates to `AgentExecutor.cancel()`
-
-The singleton is exposed as `runtime` in `api/services/runtime/__init__.py`:
-
-```python
-runtime = AgentRuntime(executor=claude, repo=AgentRunDAO())
-```
-
-Domain services call `runtime.submit(...)` instead of calling `executor.create_task()` directly. `AgentRun` creation for managed tasks lives exclusively in `runtime.submit()`; `AgentExecutor._generate_stream()` continues to create runs for direct one-shot `generate()` / `generate_stream()` calls until those callers are migrated.
-
-### 6.4. Endpoints
+### 7.4. Endpoints
 
 All endpoints prefixed with `/api`. Source lives in `api/routers/`.
 
-#### 6.4.1. System
+#### 7.4.1. System
 
-- `GET /system/status` — returns `status`, `version`, `database`, `profile_exists`, `active_agent_runs`, `services`
+- `GET /system/status` — returns `status`, `version`, `database`, `profile_exists`, `active_agent_runs`
 
-#### 6.4.2. Profile
+#### 7.4.2. Profile
 
 - `POST /profile` — creates profile; 409 if already exists
 - `GET /profile` — returns current profile; 404 if none
@@ -1040,7 +986,7 @@ All endpoints prefixed with `/api`. Source lives in `api/routers/`.
 - `POST /profile/avatar` — uploads avatar image; stores under `images_path`; updates `avatar_file_name`
 - `GET /profile/avatar` — serves the avatar image file
 
-#### 6.4.3. Work experience
+#### 7.4.3. Work experience
 
 - `GET /profile/work-experiences` — lists all work experiences for the current profile
 - `POST /profile/work-experiences` — creates work experience
@@ -1052,7 +998,7 @@ All endpoints prefixed with `/api`. Source lives in `api/routers/`.
 - `PATCH /profile/work-experiences/projects/{id}` — updates project
 - `DELETE /profile/work-experiences/projects/{id}` — deletes project; 204
 
-#### 6.4.4. Resumes
+#### 7.4.4. Resumes
 
 - `GET /profile/resumes` — lists all resumes for the current profile
 - `POST /profile/resumes` — uploads resume file (PDF, DOC, DOCX); stores under `resumes_path`
@@ -1062,7 +1008,7 @@ All endpoints prefixed with `/api`. Source lives in `api/routers/`.
 - `GET /profile/resumes/parse-work-experience/active` — returns active parse run id or null
 - `POST /profile/resumes/{id}/parse-work-experience` — parses work experience from resume via Claude; runs in background; 202
 
-#### 6.4.5. Opportunities
+#### 7.4.5. Opportunities
 
 - `GET /opportunities` — lists all opportunities
 - `POST /opportunities` — creates opportunity; returns existing if URL already present
@@ -1084,45 +1030,46 @@ All endpoints prefixed with `/api`. Source lives in `api/routers/`.
 - `POST /opportunities/{id}/absorb/{neighbor_id}` — merges neighbor into this opportunity, relinks comments, hard-deletes neighbor, deletes similarity row; 404 if either not found; 409 if pair is already dismissed; 204
 - `GET /attachments/{id}/download` — downloads attachment file
 
-#### 6.4.6. Comments
+#### 7.4.6. Comments
 
 - `PATCH /comments/{id}` — updates comment body
 - `DELETE /comments/{id}` — deletes comment; 204
 
-#### 6.4.7. Inbox
+#### 7.4.7. Inbox
 
 - `GET /inbox/status` — returns `last_scanned_at`
 - `GET /inbox/counts` — returns per-window email counts and all-sorted flags
 - `GET /inbox/sorted-counts` — returns `{email_id: [sorted, total]}` for all emails with extracted opportunities
 - `GET /inbox/scan/active` — returns active scan run id or null
-- `POST /inbox/scan` — scans Gmail inbox via Claude; deduplicates and stores new emails; runs in background; 202
+- `POST /inbox/scan` — scans Gmail inbox via Claude; deduplicates and stores new emails; runs in background; 200
 - `GET /inbox` — lists stored emails; accepts `from_date` and `to_date` query params
 - `GET /inbox/{id}` — returns email; 404 if not found
 - `DELETE /inbox/{id}` — deletes email and its extracted opportunities; 204
 - `POST /inbox/{id}/extract` — extracts opportunities from email via Claude; returns created opportunities
 - `GET /inbox/{id}/opportunities` — lists EmailOpportunity records for an email
 - `PATCH /inbox/opportunities/{id}` — updates EmailOpportunity status and optional opportunity_id
+- `POST /inbox/opportunities/decline-pending` — sets all pending email opportunities to skipped for the given email IDs; body: `{email_ids: string[]}`; returns `{count: number}`
 - `DELETE /inbox/clear` — deletes all inbox scan results (emails + extracted opportunities); 204
 
-#### 6.4.8. Agent runs
+#### 7.4.8. Agent runs
 
 - `GET /agent-runs` — lists all agent runs, newest first
 - `GET /agent-runs/{id}` — returns agent run metadata and status
 - `POST /agent-runs` — starts agent run; streams output as SSE; each line is a `StreamEvent` JSON object; stream ends with exactly one terminal event: `done`, `cancelled`, or `error`; absence of a terminal event before connection close indicates abnormal termination
-- `DELETE /agent-runs/{id}` — cancels active run; aborts in-flight SDK request via `AgentExecutor.cancel()`; marks the run `cancelled` in the DB
+- `DELETE /agent-runs/{id}` — cancels active run; aborts in-flight SDK request via `runtime.cancel()`; marks the run `cancelled` in the in-memory store
 
 ---
 
-## 7. UI
+## 8. UI
 
-### 7.1. Controls
+### 8.1. Controls
 
 This section defines shared, reusable, domain-agnostic components for common UI patterns: buttons, edits, lists, dialogs, panes, etc.
 All these components can be used in any domain as a shared library of general-purpose UI primitives.
 
 Source lives in `ui/src/shared/controls/`.
 
-#### 7.1.0. Primitives
+#### 8.1.0. Primitives
 
 Source lives in `ui/src/shared/controls/`.
 
@@ -1175,7 +1122,7 @@ FlowStep:
 - label: string
 - icon?: LucideIcon
 
-#### 7.1.1. Buttons
+#### 8.1.1. Buttons
 
 Source lives in `ui/src/shared/controls/buttons/`.
 
@@ -1244,7 +1191,7 @@ Grade mapping (score to color token):
 - E (1.0–2.9): `score-e` — border + text only (Poor)
 - F (0.0): `score-f` — border + text only, neutral stone (unscored)
 
-#### 7.1.2. Edits
+#### 8.1.2. Edits
 
 Source lives in `ui/src/shared/controls/edits/`.
 
@@ -1304,7 +1251,7 @@ CountryEdit — country selector built on DropdownEdit; options sourced from Cou
 - placeholder?: string
 - autoFocus?: boolean
 
-#### 7.1.3. Views
+#### 8.1.3. Views
 
 Source lives in `ui/src/shared/controls/views/`.
 
@@ -1400,7 +1347,7 @@ EmptyState — pane-level placeholder with optional actions:
 - primaryButton?: EmptyStateAction
 - secondaryButton?: EmptyStateAction
 
-#### 7.1.4. Dialogs
+#### 8.1.4. Dialogs
 
 Source lives in `ui/src/shared/controls/dialogs/`.
 
@@ -1454,7 +1401,7 @@ ScoreDialog — displays AI score details (pros/cons) with rescore action; score
 - url?: string | null
 - onRescore?: () => void
 
-#### 7.1.5. Panes
+#### 8.1.5. Panes
 
 Source lives in `ui/src/shared/controls/panes/`.
 
@@ -1480,7 +1427,7 @@ PaneResizeHandle — draggable vertical divider, `w-[4px]`, has vertical line in
 
 - onResize: (delta: number) => void — fired on drag with pixel delta
 
-### 7.2. Styling
+### 8.2. Styling
 
 This section defines shared, reusable, domain-agnostic Tailwind v4 tokens and utilities.
 All these tokens and utilities can be used in any domain as a shared library of general-purpose UI styling primitives.
@@ -1504,7 +1451,7 @@ Dark mode is fully automatic via `prefers-color-scheme` — no manual toggling, 
 
 Viewport is fixed: `html`, `body`, `#root` are `height: 100%; overflow: hidden`.
 
-#### 7.2.1. Color tokens
+#### 8.2.1. Color tokens
 
 Token families:
 
@@ -1572,7 +1519,7 @@ Semantic tokens (light / dark):
 - `score-f`: `#a8a29e` / `#a8a29e` — grade F (unscored); used as border + text color
 - `score-text`: `#ffffff` / `#0f172a` — text color for filled (Excellent) badges only
 
-#### 7.2.2. Layout utilities
+#### 8.2.2. Layout utilities
 
 - `devmod` — applies `bg-rose-300/50` (for layout debugging)
 - `one-liner` — single-line truncation with ellipsis
@@ -1585,7 +1532,7 @@ Semantic tokens (light / dark):
 - `container-full` — full width, 16px horizontal padding
 - `container-wide` — max-width 1200px, centered, 24px horizontal padding
 
-#### 7.2.3. Button utilities
+#### 8.2.3. Button utilities
 
 The below button utilities apply to buttons only (`button`, DropdownButton, etc.).
 
@@ -1599,14 +1546,14 @@ The below button utilities apply to buttons only (`button`, DropdownButton, etc.
 - `hyperlink` — underlined link style
 - `hyperlink-subtle` — link style, underline on hover
 
-#### 7.2.4. Component utilities
+#### 8.2.4. Component utilities
 
 - `spinning` — infinite rotation animation (0.7s linear); used by the `Spinner` component
 - `attention-dot` — 8px filled circle in `action` color; used for inbox and email unsorted indicators
 - `steps` — flex row of step tabs (no list style)
 - `step-tab` — tab item; `.active` highlights with action color; `.done` highlights with success color
 
-#### 7.2.5. Typography utilities
+#### 8.2.5. Typography utilities
 
 Override Tailwind's default `text-*` sizes with custom px values:
 
@@ -1616,7 +1563,7 @@ Override Tailwind's default `text-*` sizes with custom px values:
 - `text-lg` — 16px / 1.4
 - `text-xl` — 20px / 1.3
 
-### 7.3. Utils
+### 8.3. Utils
 
 Source lives in `ui/src/shared/utils/`.
 
@@ -1643,7 +1590,7 @@ Source lives in `ui/src/shared/utils/`.
 - `set<T>(key, value)` — JSON-serializes and writes
 - `remove(key)` — removes the key
 
-### 7.4. API Client
+### 8.4. API Client
 
 Source lives in `ui/src/services/client.ts`.
 
@@ -1654,7 +1601,7 @@ Hand-written typed API client. Thin `fetch` wrapper organized by resource (e.g. 
 - maps each method to one endpoint with inline TypeScript response types
 - has no business logic — only fetch, serialize, deserialize
 
-### 7.5. API Queries
+### 8.5. API Queries
 
 Source lives co-located with their domain under `ui/src/app/<domain>/`, e.g.:
 
@@ -1667,7 +1614,7 @@ TanStack Query (React Query) hooks manage all server state. Each query hook:
 - exposes query/mutation state to the page
 - has no business logic — only fetch, cache, invalidate
 
-### 7.6. App Routes
+### 8.6. App Routes
 
 Source lives in `ui/src/app/AppRoutes.tsx`.
 
@@ -1701,7 +1648,7 @@ Routes:
   - `*` — redirect to `/opportunities/jobs`
 - `*` — redirect to `/onboarding`
 
-### 7.7. App
+### 8.7. App
 
 Source lives in `ui/src/app/`.
 
@@ -1717,7 +1664,7 @@ Source lives in `ui/src/app/`.
 
 Pages use a three-pane layout: Filter pane — List pane — Detail pane. Each pane owns its own vertical scroll area and never scrolls horizontally.
 
-### 7.8. Sidebar
+### 8.8. Sidebar
 
 Source lives in `ui/src/app/`.
 
@@ -1733,9 +1680,9 @@ Active button: action-colored icon + `hovered` background.
 
 Button flash: when an opportunity is added or removed, the Opportunities button briefly flashes — blue (`flash-add`) on add, red (`flash-delete`) on remove. Triggered by `flashSidebarButton(button, intent)` from `AppContext`.
 
-### 7.9. Pages
+### 8.9. Pages
 
-#### 7.9.1. Onboarding
+#### 8.9.1. Onboarding
 
 Source lives in `ui/src/app/onboarding/`.
 
@@ -1747,7 +1694,7 @@ Full-page first-run flow. Shown only when the API reports no profile. Card-style
 
 On success, calls `POST /profile`, invalidates system status, redirects to `/profile`.
 
-#### 7.9.2. Opportunities
+#### 8.9.2. Opportunities
 
 Source lives in `ui/src/app/opportunities/`.
 
@@ -1817,7 +1764,7 @@ Type list pages: `JobListPage`, `ProjectListPage`, `EducationListPage`, `Network
 - "Merge into selected…" button (disabled until selection) — opens a `ConfirmationDialog`: `"This opportunity will be deleted. Its notes and job description will be moved to "[selected title]" as a note. This cannot be undone."`; primary action label "Merge now"
 - On confirm: calls `POST /opportunities/{canonical_id}/absorb/{this_id}` (roles reversed vs. Absorb); navigates to canonical
 
-#### 7.9.3. Inbox
+#### 8.9.3. Inbox
 
 Source lives in `ui/src/app/inbox/`.
 
@@ -1845,7 +1792,7 @@ Source lives in `ui/src/app/inbox/`.
 - Drives an elapsed timer (seconds since `run.created_at`)
 - Returns: `scanning`, `elapsed`, `progress` (`{ current, total, preparing } | null`), `start()`, `cancel()`
 
-#### 7.9.4. Profile
+#### 8.9.4. Profile
 
 Source lives in `ui/src/app/profile/`.
 
@@ -1875,16 +1822,16 @@ Source lives in `ui/src/app/profile/`.
 
 ---
 
-## 8. Workflows
+## 9. Workflows
 
-### 8.1. Initial setup
+### 9.1. Initial setup
 
 - User clones the repo, installs dependencies, and starts the app for the first time.
 - System detects no profile and shows the Onboarding page.
 - User enters full name, optionally job preferences and writing style.
 - System creates Profile and redirects to `/profile`.
 
-### 8.2. Profile
+### 9.2. Profile
 
 Update profile:
 
@@ -1905,7 +1852,7 @@ Manage work experience manually:
 - User clicks "+" to open `WorkExperienceDialog`; fills in company, role, dates, description, skills.
 - User can add projects to each work experience entry via `ProjectDialog`.
 
-### 8.3. Opportunities
+### 9.3. Opportunities
 
 View opportunities:
 
@@ -1933,18 +1880,18 @@ Generate cover letter (Job-specific):
 - Elapsed timer shown while generating; user can cancel.
 - User sees the new cover letter in the Cover letters section and can preview or delete it.
 
-### 8.4. Inbox
+### 9.4. Inbox
 
 Scan inbox:
 
 - User opens Inbox page and clicks the scan button.
-- System calls `POST /inbox/scan`; returns `run_id` immediately; sets `AgentRun.meta = { current: 0, total: 0, preparing: true }`; scan runs in the background until all emails are processed.
-- Preflight: Claude paginates Gmail with `max_results=500` until all pages are exhausted to get an accurate total count. On completion, sets `AgentRun.meta.preparing = false` and `total = N`.
-- Query uses `after:{last_scanned_at}` if a prior scan completed, otherwise `after:{today - scan_days}`.
+- System calls `POST /inbox/scan`; returns `run_id` immediately; sets `AgentRunRecord.meta = { current: 0, total: 0, preparing: true }`; scan runs in the background.
+- Preflight (`inbox-preflight.md`): Claude searches Gmail using the configured keywords and an `after:` epoch timestamp; paginates until all results are exhausted; returns a flat list of matching Gmail message IDs. Query uses midnight of the last scan day if any inbox emails exist, otherwise `today - scan_days`.
+- Python filters out already-known IDs via `get_known_external_ids()`; the remainder are the new IDs to process. Sets `meta = { preparing: false, total: len(new_ids), current: min(batch_size, total), last_scanned_at: <last_scanned_at> }`.
 - UI shows "Preparing scan… Xs" while `preparing` is true, then "Scanning {current}/{total} emails for Xs…" once preflight completes.
-- System scans in batches of `scan_batch_size`, paginating via Gmail `pageToken`, until no more results. After each batch: deduplicates by `external_id`, stores new `InboxEmail` records, creates `EmailOpportunity` stubs (`status: pending`, `organization_name` populated from scan output), and updates `AgentRun.meta.current`. Before each batch, checks run status — exits immediately if cancelled.
-- On completion, scan run is marked `completed`; on any exception, marked `failed`. `last_scanned_at` is derived from the most recent completed scan run's `completed_at`.
-- Each batch is a separate Claude invocation; the scan-level `AgentRun` is managed by the scan coroutine via `AgentRunHandle` (not delegated to `_generate_stream`). The coroutine is submitted via `AgentRuntime.submit("scan-inbox.md", coro_factory)` — `AgentRun` creation is owned by the runtime; the task participates in the shared task registry and can be cancelled via `DELETE /agent-runs/{id}`.
+- Batch loop: slices new IDs into batches of `scan_batch_size`; each batch is a separate `runtime.generate("scan-inbox.md", {ids: [...]})` call (retries=2). For each email returned: skips if already stored; stores new `InboxEmail`; creates `EmailOpportunity` stubs (`status: pending`, `organization_name` populated from scan output). Emails with no extracted opportunities are skipped. Updates `meta.current` after each batch. Before each batch, checks `run.is_running()` — exits immediately if cancelled.
+- On completion, scan run is marked `completed`; on any exception or unexpected output, marked `failed`. Run state lives in `InMemoryAgentRunStore` — cleared on API restart.
+- The scan-level `AgentRunRecord` is managed by the scan coroutine via `AgentRun` handle (created via `runtime.create()`, started via `runtime.run()`). The task participates in the shared task registry and can be cancelled via `DELETE /agent-runs/{id}`.
 - Scan parameters are configured in `config.yml` under `inbox`: `scan_days`, `scan_batch_size`, `scan_keywords`.
 - Inbox page shows newly surfaced emails; attention dot appears on emails and sidebar until triaged.
 
@@ -1958,7 +1905,7 @@ Triage email opportunities:
 - When all email opportunities for an email are triaged, the attention dot clears for that email.
 - When all emails are triaged for the selected filter group, the attention dot clears for that filter group.
 
-### 8.5. Opportunity similarity
+### 9.5. Opportunity similarity
 
 Detect similar opportunities (automatic, runs after each sourcing):
 
