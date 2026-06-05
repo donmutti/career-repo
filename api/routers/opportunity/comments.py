@@ -3,8 +3,8 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 
-from ....db import CommentDAO
-from ....models import Comment, CommentVersion, UpdateCommentRequestDto
+from ...db import CommentDAO
+from ...models import Comment, CommentVersion, UpdateCommentRequestDto
 
 router = APIRouter(prefix="/comments", tags=["comments"])
 

@@ -875,14 +875,13 @@ InboxService:
 
 - `build_scan_query() -> str` — builds the Gmail search query from configured keywords and `last_scanned_at`
 - `list_active_scans() -> list[AgentRun]` — returns active `scan-inbox.md` runs that have meta set
-- `create_scan_run() -> AgentRun` — creates a new `AgentRun` with `meta = { current: 0, total: 0, preparing: true }`
-- `start_scan(run_id) -> None` — starts the scan coroutine via `ClaudeService.create_task()`
+- `start_scan() -> AgentRunHandle` — delegates to `runtime.submit("scan-inbox.md", ...)`, sets initial meta `{ current: 0, total: 0, preparing: true }` on the returned handle, and returns it; `AgentRun` creation is owned by `AgentRuntime.submit()`
 
 The scan coroutine `_run_scan(ctx: AgentRunHandle)` contains all scan logic: probe (via `claude.generate("inbox-preflight", ...)`), batch loop (via `claude.generate("scan-inbox", ...)`), email/opportunity persistence. All `AgentRun` state transitions go through `AgentRunHandle`.
 
 #### 6.3.3. EmbeddingService
 
-Handles local text embedding for similarity detection. Separate from `ClaudeService` — has no involvement with the Claude agent SDK. Source lives in `api/services/ai/embedding_service.py`.
+Handles local text embedding for similarity detection. Separate from `AgentExecutor` — has no involvement with the Claude agent SDK. Source lives in `api/services/ai/embedding_service.py`.
 
 Uses `sentence-transformers` to load `all-MiniLM-L6-v2` from HF Hub (downloaded to `.cache/huggingface/` in the repo root on first use, ~22 MB, fully offline thereafter). Inference runs in a thread pool to avoid blocking the event loop. No API key required.
 
@@ -892,29 +891,45 @@ EmbeddingService:
 
 - `async embed(text: str): list[float]` — encodes text to a 384-dim normalised float vector
 
-#### 6.3.4. ClaudeService
+#### 6.3.4. AgentExecutor
 
 ##### 6.3.4.1. Invocation
 
 Claude invoked in-process via the `claude-agent-sdk` Python SDK. Source lives in `api/services/ai/`. Prompt templates live in `api/services/ai/commands/` as `.md` files; each file is the **system prompt** for one operation. Structured input is passed as the **user message**, wrapped in `<input>` tags, and the prompt explicitly instructs Claude to treat tag contents as untrusted data.
 
-`ClaudeError` — raised on SDK error, timeout, or unparseable output.
+`AgentError` — raised on SDK error, timeout, or unparseable output.
 
 `AgentRunHandle` — injected into coroutines started via `create_task()`; provides the only sanctioned interface for `AgentRun` state transitions inside multi-step orchestration loops:
 
 - `run_id: str`
+- `_status: Optional[str]` — `None` | `"completed"` | `"failed"`; set by `complete()` and `fail()` respectively; readable in-memory without a DB round-trip
 - `set_meta(meta: dict) -> None` — update progress metadata
 - `is_cancelled() -> bool` — returns `True` if run status is no longer `running` (or record is missing); used as the loop exit check before each batch
-- `complete(output: str = "") -> None` — mark run completed
-- `fail(message: str) -> None` — mark run failed
+- `complete(output: str = "") -> None` — sets `_status = "completed"`, marks run completed in DB
+- `fail(output: str = "") -> None` — sets `_status = "failed"`, marks run failed in DB
 
-`ClaudeResult[T]` (Pydantic BaseModel) — return envelope for collected (non-streaming) calls:
+`AgentResult` (Pydantic BaseModel) — return envelope for collected (non-streaming) calls:
 
-- output: T — parsed result (dict, list, str, depending on method)
+- output: Any — parsed result (dict, list, str, depending on method)
 - cost_usd: float
 - duration_ms: int
 - model: str
 - run_id: str — id of the persisted `AgentRun`
+
+`AgentSDKOptions` (dataclass) — options passed to `AgentSDK.query()`:
+
+- `permission_mode: str`
+- `max_turns: int`
+
+`AgentSDK` (Protocol) — SDK abstraction injected at construction; concrete implementation is `ClaudeAgentSDK` in `api/services/ai/claude_agent_sdk_adapter.py`:
+
+- `async query(prompt, system, tools, options: AgentSDKOptions) -> AsyncIterator[SDKMessage]`
+
+`AgentObserver` (Protocol) — optional observer injected into `create_task()`; fires after terminal state transitions in `_wrapper`:
+
+- `on_run_start(run) -> None`
+- `on_run_complete(run_id: str) -> None`
+- `on_run_fail(run_id: str) -> None`
 
 All Claude invocations flow through one private primitive: `_generate_stream()`. It owns the entire invocation lifecycle — `AgentRun` persistence, SDK invocation, tool allowlist resolution, timeout, cancellation, and event emission. No other code path invokes the SDK directly.
 
@@ -922,12 +937,12 @@ All Claude invocations flow through one private primitive: `_generate_stream()`.
 
 1. Reads the command file; uses its contents as `system_prompt`.
 2. Serializes `payload` to JSON and sends as the user message: `<input>{json}</input>`.
-3. Resolves the tool allowlist from `command_path` via the per-command table below.
+3. Resolves the tool allowlist from `command_path` via `self._tool_allowlist`.
 4. Creates an `AgentRun` record (status `running`); registers the running task in an in-memory `run_id` to `asyncio.Task` map.
-5. Invokes `claude_agent_sdk.query()` with `allowed_tools`, `permission_mode='bypassPermissions'`, `max_turns=5`, and a per-operation timeout (see public surface below).
-6. Iterates SDK messages; yields a `StreamEvent` for each text chunk, tool use, and tool result; accumulates assistant text and tracks `usage` / `total_cost_usd` from the final result message.
+5. Invokes `self._sdk.query()` with `allowed_tools`, `permission_mode='bypassPermissions'`, `max_turns=30`, and a per-operation timeout (see public surface below).
+6. Iterates SDK messages via duck typing; yields a `StreamEvent` for each text chunk, tool use, and tool result; accumulates assistant text and tracks `total_cost_usd` from the final result message.
 7. On completion: updates `AgentRun` with output and `completed_at`; emits final `done` event carrying cost/duration/model/run_id; removes task from registry.
-8. On failure or timeout: marks `AgentRun` `failed`; emits `error` event with `run_id` and `message`; removes task from registry; raises `ClaudeError`.
+8. On failure or timeout: marks `AgentRun` `failed`; emits `error` event with `run_id` and `message`; removes task from registry; raises `AgentError`.
 9. On cancellation: marks `AgentRun` `cancelled`; emits `cancelled` event with `run_id`; removes task from registry; re-raises `asyncio.CancelledError` after the event has been yielded, so any non-streaming caller still sees the exception.
 
 ##### 6.3.4.2. Streaming
@@ -943,21 +958,35 @@ Every stream ends with exactly one terminal event: `done`, `cancelled`, or `erro
 
 ##### 6.3.4.3. Public surface
 
-ClaudeService:
+`AgentExecutor` constructor:
 
-- `__init__(agent_run_dao)` — DAO injected for run persistence
-- `async generate(agent, payload, opportunity_id?, raw_text?, run_id?, timeout?): ClaudeResult` — run an agent to completion; resolves command path from agent name; raises `ClaudeError` if agent unknown
-- `async generate_stream(agent, payload, opportunity_id?, timeout?): AsyncIterator[StreamEvent]` — run an agent and yield `StreamEvent`s; resolves command path from agent name; raises `ClaudeError` if agent unknown
-- `create_task(run_id, coro_factory: (AgentRunHandle) -> Coroutine): asyncio.Task` — builds an `AgentRunHandle`, calls `coro_factory(ctx)` to obtain the coroutine, registers it in the task registry under `run_id`, and starts it; the wrapper catches `CancelledError` and marks the run failed if it wasn't already terminal
+- `__init__(repo: AgentRunDAO, sdk: AgentSDK, prompts_dir: Path, tool_allowlist: Dict[str, List[str]])` — all dependencies injected; `prompts_dir` and `tool_allowlist` are always injected together
+
+`AgentExecutor` methods:
+
+- `async generate(agent, payload, opportunity_id?, raw_text?, run_id?, timeout?): AgentResult` — run an agent to completion; resolves command path from agent name; raises `AgentError` if agent unknown
+- `async generate_stream(agent, payload, opportunity_id?, timeout?): AsyncIterator[StreamEvent]` — run an agent and yield `StreamEvent`s; resolves command path from agent name; raises `AgentError` if agent unknown
+- `create_task(run_id, coro_factory: (AgentRunHandle) -> Coroutine, handle?: AgentRunHandle, observer?: AgentObserver): AgentRunHandle` — builds an `AgentRunHandle` (or uses provided `handle`), calls `coro_factory(ctx)` to obtain the coroutine, registers it in the task registry under `run_id`, and starts it; the wrapper catches `CancelledError` and generic `Exception`, marks the run failed if not already terminal, fires observer hooks in `finally` via `ctx._status`; returns the handle
 - `async cancel(run_id): None`
 
-`generate()` consumes the full event stream from `_generate_stream()`, concatenates `text` events into a single assistant string, reads the final `done` event for cost/duration/model/run_id, parses the assistant string (JSON by default, raw text if `raw_text=True`), and returns `ClaudeResult`. Domain-specific payload construction is the caller's responsibility.
+`generate()` consumes the full event stream from `_generate_stream()`, concatenates `text` events into a single assistant string, reads the final `done` event for cost/duration/model/run_id, parses the assistant string (JSON by default, raw text if `raw_text=True`), and returns `AgentResult`. Domain-specific payload construction is the caller's responsibility.
 
 `cancel(run_id)` looks up the task in the registry and calls `task.cancel()`; the SDK aborts the in-flight request. Used by `DELETE /agent-runs/{id}`.
 
+The singleton is exposed as `claude` in `api/services/ai/__init__.py`:
+
+```python
+claude = AgentExecutor(
+    repo=AgentRunDAO(),
+    sdk=ClaudeAgentSDK(),
+    prompts_dir=Path(__file__).parent / "commands",
+    tool_allowlist={...},
+)
+```
+
 ##### 6.3.4.4. Per-command tool allowlist
 
-Resolved by `_generate_stream()` from the command file name:
+Injected as `tool_allowlist` constructor arg; resolved by `_generate_stream()` from the command file name:
 
 - `inbox-preflight.md` — `mcp__gmail__*` (Gmail MCP tools only)
 - `scan-inbox.md` — `mcp__gmail__*` (Gmail MCP tools only)
@@ -968,11 +997,32 @@ Resolved by `_generate_stream()` from the command file name:
 
 ##### 6.3.4.5. Output parsing
 
-JSON-returning commands instruct Claude in the system prompt to return **only** a JSON object or array — no prose, no markdown fences. `generate()` parses this strictly via `json.JSONDecoder().raw_decode()`; on parse failure, `ClaudeError` is raised. Pass `raw_text=True` to skip parsing and return the assistant text unmodified (used for attachment generation).
+JSON-returning commands instruct Claude in the system prompt to return **only** a JSON object or array — no prose, no markdown fences. `generate()` parses this strictly via `json.JSONDecoder().raw_decode()`; on parse failure, `AgentError` is raised. Pass `raw_text=True` to skip parsing and return the assistant text unmodified (used for attachment generation).
 
 ##### 6.3.4.6. Authentication
 
 SDK uses the credentials configured by the Claude Code CLI (subscription login or `ANTHROPIC_API_KEY` env var). The repo does not manage auth.
+
+#### 6.3.5. AgentRuntime
+
+Infrastructure layer between domain services and `AgentExecutor`. Owns `AgentRun` creation for managed multi-step tasks and provides a uniform `submit()` entry point. Source lives in `api/services/runtime/agent_runtime.py`.
+
+Constructor:
+
+- `__init__(executor: AgentExecutor, repo: AgentRunDAO, observer?: AgentObserver)` — all dependencies injected; observer is optional
+
+AgentRuntime methods:
+
+- `submit(agent, coro_factory: (AgentRunHandle) -> Coroutine, opportunity_id?): AgentRunHandle` — creates an `AgentRun` via the repo, constructs an `AgentRunHandle`, fires `observer.on_run_start(run)` if observer is present, calls `executor.create_task(run_id, coro_factory, handle=handle, observer=observer)`, and returns the handle
+- `async cancel(run_id): None` — delegates to `AgentExecutor.cancel()`
+
+The singleton is exposed as `runtime` in `api/services/runtime/__init__.py`:
+
+```python
+runtime = AgentRuntime(executor=claude, repo=AgentRunDAO())
+```
+
+Domain services call `runtime.submit(...)` instead of calling `executor.create_task()` directly. `AgentRun` creation for managed tasks lives exclusively in `runtime.submit()`; `AgentExecutor._generate_stream()` continues to create runs for direct one-shot `generate()` / `generate_stream()` calls until those callers are migrated.
 
 ### 6.4. Endpoints
 
@@ -1059,7 +1109,7 @@ All endpoints prefixed with `/api`. Source lives in `api/routers/`.
 - `GET /agent-runs` — lists all agent runs, newest first
 - `GET /agent-runs/{id}` — returns agent run metadata and status
 - `POST /agent-runs` — starts agent run; streams output as SSE; each line is a `StreamEvent` JSON object; stream ends with exactly one terminal event: `done`, `cancelled`, or `error`; absence of a terminal event before connection close indicates abnormal termination
-- `DELETE /agent-runs/{id}` — cancels active run; aborts in-flight SDK request via `ClaudeService.cancel()`; marks the run `cancelled` in the DB
+- `DELETE /agent-runs/{id}` — cancels active run; aborts in-flight SDK request via `AgentExecutor.cancel()`; marks the run `cancelled` in the DB
 
 ---
 
@@ -1894,7 +1944,7 @@ Scan inbox:
 - UI shows "Preparing scan… Xs" while `preparing` is true, then "Scanning {current}/{total} emails for Xs…" once preflight completes.
 - System scans in batches of `scan_batch_size`, paginating via Gmail `pageToken`, until no more results. After each batch: deduplicates by `external_id`, stores new `InboxEmail` records, creates `EmailOpportunity` stubs (`status: pending`, `organization_name` populated from scan output), and updates `AgentRun.meta.current`. Before each batch, checks run status — exits immediately if cancelled.
 - On completion, scan run is marked `completed`; on any exception, marked `failed`. `last_scanned_at` is derived from the most recent completed scan run's `completed_at`.
-- Each batch is a separate Claude invocation; the scan-level `AgentRun` is managed by the scan coroutine via `AgentRunHandle` (not delegated to `_generate_stream`). The coroutine is started via `ClaudeService.create_task(run_id, coro_factory)` so it participates in the shared task registry and can be cancelled via `DELETE /agent-runs/{id}`.
+- Each batch is a separate Claude invocation; the scan-level `AgentRun` is managed by the scan coroutine via `AgentRunHandle` (not delegated to `_generate_stream`). The coroutine is submitted via `AgentRuntime.submit("scan-inbox.md", coro_factory)` — `AgentRun` creation is owned by the runtime; the task participates in the shared task registry and can be cancelled via `DELETE /agent-runs/{id}`.
 - Scan parameters are configured in `config.yml` under `inbox`: `scan_days`, `scan_batch_size`, `scan_keywords`.
 - Inbox page shows newly surfaced emails; attention dot appears on emails and sidebar until triaged.
 

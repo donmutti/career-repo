@@ -22,17 +22,18 @@ from api.routers import opportunity, inbox, profile, agent, get_status
 from api.routers.profile import work_experience_projects
 from api.routers.profile import resumes as profile_resumes
 from api.routers.profile import work_experiences as profile_work_experiences
-from api.routers.opportunity.meta import comments as opportunity_comments
-from api.routers.opportunity.base.opportunity import attachments_router
+from api.routers.opportunity import comments as opportunity_comments
+from api.routers.opportunity.opportunity import attachments_router
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup/shutdown events."""
     init_db()
-    dao = AgentRunDAO()
+    agent_run_dao = AgentRunDAO()
     opp_dao = OpportunityDAO()
-    for run in dao.list_active():
-        dao.fail(run.id, "interrupted by server restart")
+    for run in agent_run_dao.list_active():
+        agent_run_dao.fail(run.id, "interrupted by server restart")
     opp_dao.reset_stuck_sourcing()
     yield
     close_db_connection()
@@ -58,7 +59,7 @@ app.add_middleware(
 )
 
 # Include opportunity routers
-app.include_router(opportunity.base.opportunity.router, prefix="/api")
+app.include_router(opportunity.opportunity.router, prefix="/api")
 app.include_router(attachments_router, prefix="/api")
 app.include_router(opportunity_comments.router, prefix="/api")
 

@@ -27,6 +27,5 @@ async def scan_inbox():
     if inbox_service.list_active_scans():
         raise HTTPException(status_code=409, detail="A scan is already in progress")
 
-    run = inbox_service.create_scan_run()
-    inbox_service.start_scan(run.id)
-    return {"run_id": run.id}
+    handle = inbox_service.start_scan()
+    return {"run_id": handle.run_id}

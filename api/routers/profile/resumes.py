@@ -8,9 +8,9 @@ from fastapi import APIRouter, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
 from ...config import ROOT, get_resumes_path
-from ...db import ProfileDAO, ResumeDAO, WorkExperienceDAO, AgentRunDAO
+from ...db import AgentRunDAO, ProfileDAO, ResumeDAO, WorkExperienceDAO
 from ...models.types import Resume
-from ...services.ai import ClaudeError, claude
+from ...services.ai import Agent, AgentRunError, runtime
 
 router = APIRouter(prefix="/profile/resumes", tags=["profile"])
 
@@ -88,7 +88,7 @@ def delete_resume(resume_id: str):
 def get_active_parse():
     """Return the active parse-work-experience run ID if one is in progress, else null."""
     for run in agent_run_dao.list_active():
-        if run.agent == "parse-work-experience-from-resume.md":
+        if run.agent == Agent.PARSE_WORK_EXPERIENCE:
             return {"run_id": run.id}
     return {"run_id": None}
 
@@ -126,15 +126,20 @@ async def parse_work_experience(resume_id: str):
     if not resume_text.strip():
         raise HTTPException(status_code=422, detail="Could not extract text from resume")
 
-    run = agent_run_dao.create("parse-work-experience-from-resume.md", None)
+    run = runtime.create(Agent.PARSE_WORK_EXPERIENCE)
 
     async def _run():
         try:
-            result = await claude.generate("parse-work-experience-from-resume", resume_text, run_id=run.id, timeout=120.0)
-        except (ClaudeError, asyncio.CancelledError):
+            result = await run.generate(resume_text, timeout=120.0)
+        except asyncio.CancelledError:
+            run.fail()
+            raise
+        except AgentRunError:
+            run.fail()
             return
         entries = [e for e in (result.output if isinstance(result.output, list) else []) if e.get("company") and e.get("role")]
         if not entries:
+            run.complete()
             return
         for existing in we_dao.list_for_profile(profile.id):
             we_dao.delete(existing.id)
@@ -148,6 +153,7 @@ async def parse_work_experience(resume_id: str):
                 entry.get("description"),
                 entry.get("skills"),
             )
+        run.complete()
 
-    asyncio.create_task(_run())
-    return {"run_id": run.id}
+    runtime.run(run, _run())
+    return {"run_id": run.run_id}

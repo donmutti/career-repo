@@ -1,6 +1,6 @@
 import {useLocation, useNavigate} from 'react-router'
 import {useQuery} from '@tanstack/react-query'
-import {BriefcaseBusiness, Mail, User} from 'lucide-react'
+import {Mail, Star, User} from 'lucide-react'
 import {queryKeys} from '@/services/queryKeys'
 import {inbox as inboxApi, profile as profileApi} from '@/services/client'
 import {Tooltip} from '@/shared/controls/Tooltip'
@@ -83,7 +83,7 @@ export function Sidebar({flashingButton}: SidebarProps) {
             className={`flex items-center justify-center rounded-md w-10 h-10 ${isOpportunities ? 'hovered text-action' : 'hoverable hoverable-text text-label-medium'}`}
           >
             <span className={`flex items-center justify-center w-full h-full rounded-md ${flashButton('opportunities') ? `flash-${flashButton('opportunities')!.intent}` : ''}`}>
-              <BriefcaseBusiness size={20}/>
+              <Star size={20}/>
             </span>
           </button>
         </Tooltip>

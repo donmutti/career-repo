@@ -1,5 +1,5 @@
 """Opportunity routers."""
 
-from . import base
+from . import opportunity, comments
 
-__all__ = ["base"]
+__all__ = ["opportunity", "comments"]

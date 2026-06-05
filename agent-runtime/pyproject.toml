@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-runtime"
+version = "0.1.0"
+description = "Domain-agnostic agent execution library — executor, runtime, and SDK protocol"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+claude = [
+    "claude-agent-sdk>=0.1.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

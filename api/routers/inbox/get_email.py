@@ -5,15 +5,14 @@ from typing import List
 
 from fastapi import APIRouter, HTTPException
 
-from ...db import InboxEmailDAO, OpportunityDAO, AgentRunDAO
+from ...db import InboxEmailDAO, OpportunityDAO
 from ...models import InboxEmail, Opportunity, OpportunityVersion, OpportunityStatus, OpportunityType
-from ...services.ai import ClaudeError, claude
+from ...services.ai import Agent, AgentRunError, runtime
 
 router = APIRouter(prefix="/inbox", tags=["inbox"])
 
 email_dao = InboxEmailDAO()
 opp_dao = OpportunityDAO()
-agent_run_dao = AgentRunDAO()
 
 
 @router.get("/{email_id}", response_model=InboxEmail)
@@ -43,9 +42,9 @@ async def extract_opportunities(email_id: str):
 
     email_content = f"From: {email.from_address}\nSubject: {email.subject}\n\n{email.body}"
     try:
-        result = await claude.generate("extract-opportunity-from-email", email_content, timeout=120.0)
+        result = await runtime.generate(Agent.EXTRACT_OPPORTUNITY, email_content, timeout=120.0)
         extracted = result.output
-    except ClaudeError as e:
+    except AgentRunError as e:
         raise HTTPException(status_code=500, detail=str(e))
 
     opportunities = [e for e in extracted if isinstance(e, dict) and e.get("is_opportunity") is not False]

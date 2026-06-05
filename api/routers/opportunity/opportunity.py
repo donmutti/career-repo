@@ -1,6 +1,5 @@
 """CRUD and sub-resource routes for /opportunities"""
 
-import asyncio
 from datetime import date
 from typing import List
 
@@ -8,38 +7,37 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from fastapi.responses import FileResponse
 
-from ....config import ROOT, get_attachment_path
-from ....db import (
-    OpportunityDAO, ProfileDAO, WorkExperienceDAO,
+from ...config import ROOT, get_attachment_path
+from ...db import (
+    OpportunityDAO,
     CommentDAO, AttachmentDAO,
     AgentRunDAO,
     OpportunityEmbeddingDAO, OpportunitySimilarityDAO,
 )
-from ....models import (
+from ...models import (
     Opportunity, OpportunityVersion, OpportunityStatus, OpportunityType,
     OpportunitySimilarity,
     JobContractType, JobWorkMode, JobPayPeriod,
     ProjectType, EducationType, EducationLevel, NetworkingType, LearningType,
     CreateOpportunityRequestDto, UpdateOpportunityRequestDto,
     Comment, CommentVersion, CreateCommentRequestDto,
-    Attachment, AttachmentType, CreateAttachmentRequestDto,
+    Attachment, CreateAttachmentRequestDto,
     AgentRun,
 )
-from ....services.ai import ClaudeError, claude, embedding
-from ....services.files import FileService
+from ...services.files import FileService
+from ...services.opportunity import OpportunityService
 
 router = APIRouter(prefix="/opportunities", tags=["opportunities"])
 attachments_router = APIRouter(tags=["attachments"])
 
 opp_dao = OpportunityDAO()
-profile_dao = ProfileDAO()
-work_experience_dao = WorkExperienceDAO()
 comment_dao = CommentDAO()
 attach_dao = AttachmentDAO()
 agent_run_dao = AgentRunDAO()
 embedding_dao = OpportunityEmbeddingDAO()
 similarity_dao = OpportunitySimilarityDAO()
 files = FileService(ROOT / get_attachment_path())
+opp_service = OpportunityService()
 
 
 def _parse_version_fields(data: dict) -> dict:
@@ -163,7 +161,7 @@ def list_opportunity_agent_runs(opportunity_id: str):
     opp = opp_dao.get(opportunity_id)
     if not opp:
         raise HTTPException(status_code=404, detail="Opportunity not found")
-    return agent_run_dao.list_active_for_opportunity(opportunity_id)
+    return agent_run_dao.list_active_by_external_id(opportunity_id)
 
 
 @router.get("/{opportunity_id}/history")
@@ -179,56 +177,11 @@ def get_opportunity_history(opportunity_id: str):
 # ---------------------------------------------------------------------------
 
 @router.post("/{opportunity_id}/source", status_code=202)
-async def source_opportunity(opportunity_id: str):
+def source_opportunity(opportunity_id: str):
     """AI-assisted sourcing: enriches details and scores the opportunity. Runs in background."""
-    opportunity = opp_dao.get(opportunity_id)
-    if not opportunity:
+    if not opp_dao.get(opportunity_id):
         raise HTTPException(status_code=404, detail="Opportunity not found")
-    profile = profile_dao.get()
-    work_experiences = work_experience_dao.list_for_profile(profile.id) if profile else []
-
-    run = agent_run_dao.create("source-opportunity.md", opportunity_id)
-    opp_dao.set_sourcing_started(opportunity_id, run.id)
-
-    async def _run():
-        try:
-            result = await claude.generate("source-opportunity", {
-                "opportunity": opportunity.model_dump(mode="json"),
-                "profile": profile.model_dump(mode="json") if profile else None,
-                "work_experiences": [we.model_dump(mode="json") for we in work_experiences] if work_experiences else [],
-            }, opportunity_id=opportunity_id, run_id=run.id, timeout=180.0)
-            sourced = result.output
-        except (ClaudeError, asyncio.CancelledError):
-            opp_dao.set_sourcing_completed(opportunity_id)
-            return
-        avatar_url = sourced.pop("avatar_url", None)
-        organization_unit_name = sourced.pop("organization_unit_name", None)
-        updates = {k: v for k, v in sourced.items() if v is not None}
-        typed = _parse_version_fields(updates)
-        enriched = opportunity.model_copy(update={
-            "active_version": opportunity.active_version.model_copy(update=typed)
-        })
-        opp_dao.update(opportunity_id, enriched.active_version)
-        if avatar_url:
-            opp_dao.set_avatar_url(opportunity_id, avatar_url)
-        opp_dao.set_sourcing_completed(opportunity_id)
-
-        try:
-            opp = opp_dao.get(opportunity_id)
-            if opp and opp.active_version:
-                org = opp.active_version.organization_name
-                parts = [p for p in ([org] * 5 if org else []) + [opp.active_version.title, organization_unit_name] if p]
-                embed_str = " | ".join(parts)
-                if embed_str:
-                    vector = await embedding.embed(embed_str)
-                    embedding_dao.upsert(opportunity_id, vector)
-                    similar = embedding_dao.find_similar(opportunity_id)
-                    for similar_id, sim_score in similar:
-                        similarity_dao.upsert(opportunity_id, similar_id, sim_score)
-        except Exception:
-            pass
-
-    asyncio.create_task(_run())
+    opp_service.source(opportunity_id)
     return {"status": "started"}
 
 
@@ -285,53 +238,22 @@ def create_attachment(opportunity_id: str, request: CreateAttachmentRequestDto):
 @router.get("/{opportunity_id}/cover-letter/active")
 def get_active_cover_letter_run(opportunity_id: str):
     """Return the active cover-letter run ID for this opportunity, or null."""
-    for run in agent_run_dao.list_active_for_opportunity(opportunity_id):
+    for run in agent_run_dao.list_active_by_external_id(opportunity_id):
         if run.agent == "generate-attachment.md":
             return {"run_id": run.id}
     return {"run_id": None}
 
 
 @router.post("/{opportunity_id}/cover-letter", status_code=202)
-async def generate_cover_letter(opportunity_id: str):
+def generate_cover_letter(opportunity_id: str):
     """Generate a cover letter for a Job opportunity. Runs in background; poll agent run for completion."""
     opportunity = opp_dao.get(opportunity_id)
     if not opportunity:
         raise HTTPException(status_code=404, detail="Opportunity not found")
     if opportunity.type != OpportunityType.JOB:
         raise HTTPException(status_code=400, detail="Cover letter can only be generated for Job opportunities")
-    profile = profile_dao.get()
-    work_experiences = work_experience_dao.list_for_profile(profile.id) if profile else []
-
-    run = agent_run_dao.create("generate-attachment.md", opportunity_id)
-
-    async def _generate():
-        try:
-            result = await claude.generate("generate-attachment", {
-                "attachment_type": "cover_letter",
-                "opportunity": opportunity.model_dump(mode="json"),
-                "profile": profile.model_dump(mode="json") if profile else None,
-                "work_experiences": [we.model_dump(mode="json") for we in work_experiences] if work_experiences else [],
-            }, opportunity_id=opportunity_id, run_id=run.id, raw_text=True, timeout=180.0)
-            md_content = result.output
-        except (ClaudeError, asyncio.CancelledError):
-            return
-
-        file_path = f"{opportunity_id}/cover_letter.pdf"
-        try:
-            files.write_pdf(file_path, md_content)
-        except RuntimeError:
-            return
-
-        attach_dao.create(
-            opportunity_id=opportunity_id,
-            attachment_type=AttachmentType.MOTIVATION,
-            file_path=file_path,
-            file_type="application/pdf",
-            title=f"Cover Letter \u2013 {opportunity.active_version.title}",
-        )
-
-    asyncio.create_task(_generate())
-    return {"run_id": run.id}
+    handle = opp_service.generate_cover_letter(opportunity_id)
+    return {"run_id": handle.run_id}
 
 
 # ---------------------------------------------------------------------------

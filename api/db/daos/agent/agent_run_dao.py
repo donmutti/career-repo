@@ -3,19 +3,20 @@
 import json
 from typing import Any, Dict, List, Optional
 
+from agent_runtime import AgentRunStatus
 from api.models.entities import AgentRun
 from ..base import BaseEntityDAO
 
 
 class AgentRunDAO(BaseEntityDAO[AgentRun]):
 
-    def create(self, agent: str, opportunity_id: Optional[str] = None) -> AgentRun:
+    def create(self, agent: str, external_id: Optional[str] = None) -> AgentRun:
         """Create a new agent run record in running state."""
         run_id = self._generate_id()
         now = self._now()
         self._execute(
             "insert into agent_run (id, agent, status, opportunity_id, created_at) values (?, ?, ?, ?, ?)",
-            (run_id, agent, "running", opportunity_id, now.isoformat()),
+            (run_id, agent, "running", external_id, now.isoformat()),
         )
         self._save()
         return self.get(run_id)
@@ -38,11 +39,11 @@ class AgentRunDAO(BaseEntityDAO[AgentRun]):
         )
         return [self._from_dict(dict(row)) for row in cursor.fetchall()]
 
-    def list_active_for_opportunity(self, opportunity_id: str) -> List[AgentRun]:
-        """List active runs for a specific opportunity."""
+    def list_active_by_external_id(self, external_id: str) -> List[AgentRun]:
+        """List active runs for a specific external ID."""
         cursor = self._execute(
             "select * from agent_run where status = 'running' and opportunity_id = ? order by created_at desc",
-            (opportunity_id,),
+            (external_id,),
         )
         return [self._from_dict(dict(row)) for row in cursor.fetchall()]
 
@@ -92,8 +93,8 @@ class AgentRunDAO(BaseEntityDAO[AgentRun]):
             id=row["id"],
             created_at=row["created_at"],
             agent=row["agent"],
-            status=row["status"],
-            opportunity_id=row.get("opportunity_id"),
+            status=AgentRunStatus(row["status"]),
+            external_id=row.get("opportunity_id"),
             output=row.get("output"),
             completed_at=row.get("completed_at"),
             meta=json.loads(raw_meta) if raw_meta else None,

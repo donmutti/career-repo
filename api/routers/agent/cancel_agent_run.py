@@ -3,7 +3,7 @@
 from fastapi import APIRouter, HTTPException
 
 from ...db import AgentRunDAO, OpportunityDAO
-from ...services.ai import claude
+from ...services.ai import runtime
 
 router = APIRouter(prefix="/agent-runs", tags=["agent-runs"])
 
@@ -19,10 +19,10 @@ async def cancel_agent_run(run_id: str):
         raise HTTPException(status_code=404, detail="AgentRun not found")
 
     if run.status == "running":
-        await claude.cancel(run_id)
+        await runtime.cancel(run_id)
         agent_run_dao.cancel(run_id)
         # Stamp sourcing_completed_at if this run was a sourcing run
-        if run.opportunity_id:
-            opp = opp_dao.get(run.opportunity_id)
+        if run.external_id:
+            opp = opp_dao.get(run.external_id)
             if opp and opp.sourcing_agent_run_id == run_id and opp.sourcing_completed_at is None:
-                opp_dao.set_sourcing_completed(run.opportunity_id)
+                opp_dao.set_sourcing_completed(run.external_id)

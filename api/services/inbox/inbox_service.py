@@ -6,7 +6,7 @@ from datetime import datetime, timezone, timedelta
 
 from api.config import get_inbox_scan_days, get_inbox_scan_batch_size, get_inbox_scan_keywords
 from api.db import InboxEmailDAO, EmailOpportunityDAO, AgentRunDAO
-from api.services.ai import ClaudeError, AgentRunHandle, claude
+from api.services.ai import Agent, AgentRunError, AgentRun, runtime
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -32,31 +32,29 @@ class InboxService:
     def list_active_scans(self):
         return [
             run for run in self._agent_run_dao.list_active()
-            if run.agent == "scan-inbox.md" and run.meta is not None
+            if run.agent == Agent.INBOX_SCAN and run.meta is not None
         ]
 
-    def create_scan_run(self):
-        run = self._agent_run_dao.create("scan-inbox.md", None)
-        self._agent_run_dao.set_meta(run.id, {"current": 0, "total": 0, "preparing": True})
+    def start_scan(self) -> AgentRun:
+        run = runtime.create(Agent.INBOX_SCAN)
+        run.set_meta({"current": 0, "total": 0, "preparing": True})
+        runtime.run(run, self._run_scan(run))
         return run
 
-    def start_scan(self, run_id: str) -> None:
-        claude.create_task(run_id, self._run_scan)
-
-    async def _run_scan(self, ctx: AgentRunHandle) -> None:
+    async def _run_scan(self, run: AgentRun) -> None:
         # Probe: get total count
         try:
             scan_query = self.build_scan_query()
             logger.info("Starting probe: scan_days=%d query=%r", get_inbox_scan_days(), scan_query)
-            probe_result = await claude.generate("inbox-preflight", {"query": scan_query}, timeout=300.0)
+            probe_result = await runtime.generate(Agent.INBOX_PREFLIGHT, {"query": scan_query}, timeout=300.0)
             probe = probe_result.output
             total = int(probe.get("total", 0))
-        except (ClaudeError, Exception) as e:
-            ctx.fail(f"Probe failed: {e}")
+        except Exception as e:
+            run.fail(f"Probe failed: {e}")
             return
 
         batch_size = get_inbox_scan_batch_size()
-        ctx.set_meta({"current": min(batch_size, total), "total": total, "preparing": False})
+        run.set_meta({"current": min(batch_size, total), "total": total, "preparing": False})
         logger.info("Probe complete: total=%d query=%r", total, scan_query)
 
         # Batch scan loop
@@ -64,14 +62,14 @@ class InboxService:
         current = 0
 
         while True:
-            if ctx.is_cancelled():
+            if not run.is_running():
                 return
 
             batch = None
             for attempt in range(3):
                 try:
-                    result = await claude.generate(
-                        "scan-inbox",
+                    result = await runtime.generate(
+                        Agent.INBOX_SCAN,
                         {"query": scan_query, "page_token": page_token, "max_results": get_inbox_scan_batch_size()},
                         timeout=300.0,
                     )
@@ -81,19 +79,19 @@ class InboxService:
                     logger.warning("Batch attempt %d returned unexpected type %s, retrying", attempt + 1, type(result.output).__name__)
                 except asyncio.CancelledError:
                     return
-                except ClaudeError as e:
+                except AgentRunError as e:
                     logger.warning("Batch attempt %d failed: %s, retrying", attempt + 1, e)
 
             if batch is None:
                 logger.error("Batch failed after 3 attempts, aborting scan")
-                ctx.fail("Batch failed after 3 attempts")
+                run.fail("Batch failed after 3 attempts")
                 return
 
             scanned_emails = batch.get("emails", [])
             next_page_token = batch.get("next_page_token")
 
             current += len(scanned_emails)
-            ctx.set_meta({"current": current, "total": total, "preparing": False})
+            run.set_meta({"current": current, "total": total, "preparing": False})
             logger.info("Batch complete: emails=%d current=%d/%d next_page_token=%s", len(scanned_emails), current, total, next_page_token)
 
             for email_data in scanned_emails:
@@ -129,4 +127,4 @@ class InboxService:
 
             page_token = next_page_token
 
-        ctx.complete()
+        run.complete()
