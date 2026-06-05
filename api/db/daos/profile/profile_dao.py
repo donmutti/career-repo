@@ -13,13 +13,15 @@ class ProfileDAO(VersionedEntityDAO[Profile]):
     version_table_name = "profile_version"
     version_fk_column = "profile_id"
 
-    def create(self, full_name: str, voice_settings: str = "") -> str:
+    def create(self, full_name: str, job_preferences: Optional[str] = None, voice_settings: str = "") -> str:
         """Create a new profile."""
         profile_id = self._generate_id()
         now = self._now()
         version = ProfileVersion(
             active_from=now,
             full_name=full_name,
+            job_preferences=job_preferences,
+            voice_settings=voice_settings,
         )
         self._execute(
             f"INSERT INTO {self.table_name} (id, created_at) VALUES (?, ?)",

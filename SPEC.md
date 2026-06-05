@@ -846,7 +846,7 @@ VersionedEntityDAO[T: BaseEntity] (BaseEntityDAO[T]):
 
 ProfileDAO (VersionedEntityDAO[Profile]):
 
-- `create(full_name, voice_settings): str` (profile id)
+- `create(full_name, job_preferences?, voice_settings): str` (profile id)
 - `get(id?): Profile | None` — single-user; ignores id, returns first row
 - `update(profile_id, version): Profile | None`
 - `delete(id?): None` — not implemented
@@ -983,7 +983,7 @@ All endpoints prefixed with `/api`. Source lives in `api/routers/`.
 
 #### 7.4.2. Profile
 
-- `POST /profile` — creates profile; 409 if already exists
+- `POST /profile` — creates profile; accepts `full_name`, `job_preferences?`, `voice_settings?`; 409 if already exists
 - `GET /profile` — returns current profile; 404 if none
 - `PATCH /profile` — creates new profile version with updated fields
 - `POST /profile/avatar` — uploads avatar image; stores under `images_path`; updates `avatar_file_name`

@@ -25,7 +25,7 @@ def create_profile(request: CreateProfileRequestDto):
     """Create a new user profile."""
     if profile_dao.get():
         raise HTTPException(status_code=409, detail="Profile already exists")
-    profile_dao.create(request.full_name)
+    profile_dao.create(request.full_name, request.job_preferences, request.voice_settings or "")
     return profile_dao.get()
 
 
