@@ -315,7 +315,7 @@ def absorb_opportunity(opportunity_id: str, neighbor_id: str):
         meta_parts.append(f"Pay: {pay_str}{period}")
     meta_line = " · ".join(meta_parts)
     note_body = f"{meta_line}:\n\n{d.description}" if d.description else meta_line
-    comment_dao.create(opportunity_id, CommentVersion(body=note_body), created_at=duplicate.created_at.isoformat())
+    comment_dao.create(opportunity_id, CommentVersion(body=note_body), created_at=duplicate.created_at)
 
     # Apply canonical version unchanged
     opp_dao.update(opportunity_id, c)

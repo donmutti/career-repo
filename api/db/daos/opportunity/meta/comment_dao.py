@@ -1,5 +1,6 @@
 """Comment DAO."""
 
+from datetime import datetime
 from typing import List, Optional
 
 from ...base import VersionedEntityDAO
@@ -11,7 +12,7 @@ class CommentDAO(VersionedEntityDAO[Comment]):
     version_table_name = "comment_version"
     version_fk_column = "comment_id"
 
-    def create(self, opportunity_id: str, version: CommentVersion, created_at: Optional[str] = None) -> Comment:
+    def create(self, opportunity_id: str, version: CommentVersion, created_at: Optional[datetime] = None) -> Comment:
         """Create a comment on an opportunity."""
         comment_id = self._generate_id()
         now = created_at or self._now()
