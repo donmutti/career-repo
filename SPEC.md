@@ -1038,7 +1038,7 @@ All endpoints prefixed with `/api`. Source lives in `api/routers/`.
 #### 7.4.7. Inbox
 
 - `GET /inbox/status` — returns `last_scanned_at`
-- `GET /inbox/counts` — returns per-window email counts and all-sorted flags
+- `GET /inbox/counts` — returns per-window email counts and all-sorted flags; accepts optional `today` query param (ISO date string) to anchor window boundaries; defaults to server's local date
 - `GET /inbox/sorted-counts` — returns `{email_id: [sorted, total]}` for all emails with extracted opportunities
 - `GET /inbox/scan/active` — returns active scan run id or null
 - `POST /inbox/scan` — scans Gmail inbox via Claude; deduplicates and stores new emails; runs in background; 200

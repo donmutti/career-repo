@@ -13,9 +13,10 @@ email_opp_dao = EmailOpportunityDAO()
 
 
 @router.get("/counts")
-def inbox_counts():
+def inbox_counts(today: str = None):
     """Return email counts for standard time windows."""
-    today = date.today().isoformat()
+    if not today:
+        today = date.today().isoformat()
     return email_dao.counts_by_window(today)
 
 

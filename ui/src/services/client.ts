@@ -112,7 +112,7 @@ export const inbox = {
   activeScan: () => apiFetch<{ run_id: string | null }>('/inbox/scan/active'),
   scan: (params?: { from_date?: string; to_date?: string }) => apiFetch<unknown>('/inbox/scan', {method: 'POST', body: JSON.stringify(params ?? {})}),
   status: () => apiFetch<{ last_scanned_at: string | null }>('/inbox/status'),
-  counts: () => apiFetch<{ today: number; yesterday: number; last7: number; last30: number }>('/inbox/counts'),
+  counts: () => apiFetch<{ today: number; yesterday: number; last7: number; last30: number }>(`/inbox/counts?today=${new Date().toISOString().slice(0, 10)}`),
   sortedCounts: () => apiFetch<Record<string, [number, number]>>('/inbox/sorted-counts'),
   list: (params?: { from_date?: string; to_date?: string }) => {
     const q = new URLSearchParams()
