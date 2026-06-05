@@ -142,7 +142,10 @@ def set_opportunity_url(opportunity_id: str, request: SetUrlRequest):
     opportunity = opp_dao.get(opportunity_id)
     if not opportunity:
         raise HTTPException(status_code=404, detail="Opportunity not found")
-    opp_dao.set_url(opportunity_id, request.url.strip())
+    old_url = opportunity.url
+    new_url = request.url.strip()
+    opp_dao.set_url(opportunity_id, new_url)
+    comment_dao.create(opportunity_id, CommentVersion(body=f"Changed URL from {old_url} to {new_url}"))
     return opp_dao.get(opportunity_id)
 
 
