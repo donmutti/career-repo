@@ -15,6 +15,7 @@ import {JobRow} from './JobRow'
 import {JobView} from './JobView'
 import {AddJobBar} from './AddJobBar'
 import {useOpportunities} from '@/app/opportunities/useOpportunities'
+import {ScoreDialog} from '@/shared/controls/dialogs/ScoreDialog'
 
 
 export default function JobListPage() {
@@ -22,6 +23,7 @@ export default function JobListPage() {
   const navigate = useNavigate()
   const [listWidth, setListWidth] = useState(() => LocalStorageUtils.get('pane.opportunities.list', 550))
   const [groupByMode, setGroupByMode] = useState<JobGroupByMode>(() => LocalStorageUtils.get('pane.jobs.groupBy', 'status'))
+  const [scoreDialogOpportunity, setScoreDialogOpportunity] = useState<Opportunity | null>(null)
 
   const {timeWindow, setActiveType} = useOutletContext<OpportunityContext>()
 
@@ -100,6 +102,7 @@ export default function JobListPage() {
                     navigateTo={`/opportunities/jobs/${item.id}`}
                     selected={item.id === selectedId}
                     isChanging={item.sourcing_started_at != null && item.sourcing_completed_at == null}
+                    onScoreBadgeClick={() => setScoreDialogOpportunity(item)}
                   />
                 )}
               />
@@ -130,6 +133,15 @@ export default function JobListPage() {
           />
         )}
       </Pane>
+      <ScoreDialog
+        open={scoreDialogOpportunity != null}
+        onOpenChange={(open) => { if (!open) setScoreDialogOpportunity(null) }}
+        score={scoreDialogOpportunity?.active_version.score}
+        explanation={scoreDialogOpportunity?.active_version.score_explanation}
+        title={scoreDialogOpportunity?.active_version.title}
+        organizationName={scoreDialogOpportunity?.active_version.organization_name}
+        url={scoreDialogOpportunity?.url}
+      />
     </>
   )
 }

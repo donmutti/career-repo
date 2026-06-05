@@ -10,6 +10,7 @@ interface JobRowProps {
   navigateTo: string
   selected?: boolean
   isChanging?: boolean
+  onScoreBadgeClick?: () => void
 }
 
 function CompanyAvatar({url, avatarUrl}: {url: string; avatarUrl?: string}) {
@@ -24,7 +25,7 @@ function CompanyAvatar({url, avatarUrl}: {url: string; avatarUrl?: string}) {
   )
 }
 
-export function JobRow({opportunity: o, navigateTo, selected, isChanging}: JobRowProps) {
+export function JobRow({opportunity: o, navigateTo, selected, isChanging, onScoreBadgeClick}: JobRowProps) {
   const navigate = useNavigate()
   const {title, score} = o.active_version
 
@@ -38,7 +39,11 @@ export function JobRow({opportunity: o, navigateTo, selected, isChanging}: JobRo
         <div className={`one-liner text-base ${isChanging ? 'text-label-medium' : 'text-label-darker'}`}>{title || o.url}</div>
       </div>
       <div className="w-[30px] flex items-center justify-center shrink-0">
-        {isChanging ? <Spinner/> : <ScoreBadge score={score} size="sm"/>}
+        {isChanging ? <Spinner/> : (
+          <button onClick={(e) => { e.stopPropagation(); onScoreBadgeClick?.() }}>
+            <ScoreBadge score={score} size="sm"/>
+          </button>
+        )}
       </div>
     </button>
   )
