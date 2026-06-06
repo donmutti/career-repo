@@ -18,6 +18,7 @@ import {CommentRow} from '@/app/opportunities/CommentRow'
 import {AttachmentRow} from '@/app/opportunities/AttachmentRow'
 import {SimilarOpportunityRow} from '@/app/opportunities/SimilarOpportunityRow'
 import {MergeIntoDialog} from '@/app/opportunities/MergeIntoDialog'
+import {CompensationDialog} from './CompensationDialog'
 import {ScoreBadge} from '@/shared/controls/buttons/ScoreBadge'
 import {Attachment, Comment, OpportunitySimilarity, STATUS_GROUPS} from '@/app/opportunities/OpportunityTypes'
 import {useOpportunities} from '@/app/opportunities/useOpportunities'
@@ -40,6 +41,7 @@ export function JobView({opportunityId}: JobViewProps) {
   const [descriptionEditing, setDescriptionEditing] = useState(false)
   const [scoreDialogOpen, setScoreDialogOpen] = useState(false)
   const [clearUrlDialogOpen, setClearUrlDialogOpen] = useState(false)
+  const [compensationDialogOpen, setCompensationDialogOpen] = useState(false)
 
   const {
     opportunity,
@@ -54,6 +56,7 @@ export function JobView({opportunityId}: JobViewProps) {
     similarOpportunities, absorb, isAbsorbing,
     mergeInto, isMergingInto,
     setUrl, isSettingUrl,
+    setCompensation,
   } = useOpportunity(opportunityId, {
 
     onDeleted: () => {
@@ -202,6 +205,7 @@ export function JobView({opportunityId}: JobViewProps) {
               onGenerateCoverLetter={() => generateCoverLetter()}
               onSetUrl={() => { setUrlInput(opportunity.url ?? ''); setSetUrlDialogOpen(true) }}
               onClearUrl={() => setClearUrlDialogOpen(true)}
+              onSetCompensation={() => setCompensationDialogOpen(true)}
               onMergeInto={() => setMergeIntoDialogOpen(true)}
               onDelete={() => setDeleteDialogOpen(true)}
             />
@@ -380,6 +384,17 @@ export function JobView({opportunityId}: JobViewProps) {
         primaryActionLabel="Clear URL"
         onConfirm={() => { setUrl(''); setClearUrlDialogOpen(false) }}
         isSubmitting={isSettingUrl}
+      />
+
+      {/* Compensation dialog */}
+      <CompensationDialog
+        open={compensationDialogOpen}
+        onOpenChange={setCompensationDialogOpen}
+        payMin={activeVersion.job_pay_min}
+        payMax={activeVersion.job_pay_max}
+        payCurrency={activeVersion.job_pay_currency}
+        payPeriod={activeVersion.job_pay_period}
+        onSubmit={(data) => { setCompensation(data); setCompensationDialogOpen(false) }}
       />
 
       {/* Delete dialog */}

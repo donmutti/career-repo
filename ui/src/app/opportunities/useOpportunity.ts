@@ -166,6 +166,14 @@ export function useOpportunity(opportunityId: string, options: UseOpportunityOpt
     },
   })
 
+  const setCompensationMutation = useMutation({
+    mutationFn: (data: {job_pay_min: number | null; job_pay_max: number | null; job_pay_currency: string | null; job_pay_period: string | null}) => opApi.setCompensation(opportunityId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({queryKey: queryKeys.opportunity(opportunityId)})
+      queryClient.invalidateQueries({queryKey: queryKeys.opportunities})
+    },
+  })
+
   const setUrlMutation = useMutation({
     mutationFn: (url: string) => opApi.setUrl(opportunityId, url),
     onSuccess: () => {
@@ -226,6 +234,7 @@ export function useOpportunity(opportunityId: string, options: UseOpportunityOpt
     deleteAttachment: deleteAttachmentMutation.mutate,
     deleteOpportunity: deleteMutation.mutate,
     isDeletingOpportunity: deleteMutation.isPending,
+    setCompensation: setCompensationMutation.mutate,
     setUrl: setUrlMutation.mutate,
     isSettingUrl: setUrlMutation.isPending,
     similarOpportunities,

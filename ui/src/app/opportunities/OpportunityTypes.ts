@@ -1,5 +1,5 @@
 import {ReactNode} from 'react'
-import {BookOpen, BriefcaseBusiness, Building2, Folder, GraduationCap, Hash, LucideIcon, Signpost, SquareUserRound, Users} from 'lucide-react'
+import {BookOpen, BriefcaseBusiness, Building2, Coins, Folder, GraduationCap, Hash, LucideIcon, Signpost, SquareUserRound, Users} from 'lucide-react'
 
 export interface OpportunityVersion {
   status: string
@@ -76,7 +76,7 @@ export const STATUS_GROUPS = [
   {key: 'closed', label: STATUS_LABELS.closed},
 ]
 
-export type JobGroupByMode = 'status' | 'organization_name' | 'score' | 'title'
+export type JobGroupByMode = 'status' | 'organization_name' | 'score' | 'title' | 'compensation'
 
 export interface JobGroupByOption {
   label: string
@@ -122,6 +122,50 @@ const SCORE_GRADE_ORDER: Record<string, number> = {
 export const SCORE_GRADE_KEYS = Object.keys(SCORE_GRADE_ORDER)
 
 
+const ANNUAL_MULTIPLIERS: Record<string, number> = {
+  annual: 1,
+  monthly: 12,
+  daily: 220,
+  hourly: 1760,
+  milestone: 1,
+}
+
+const COMP_BREAKPOINTS = [0, 50, 75, 100, 125, 150, 200, 250, 300, 350, 400, 500]
+
+const COMP_BUCKET_KEYS = [
+  ...COMP_BREAKPOINTS.map((lo, i) => {
+    const hi = COMP_BREAKPOINTS[i + 1]
+    if (lo === 0 && hi != null) return `< ${hi}K`
+    return hi != null ? `${lo}K – ${hi}K` : `${lo}K+`
+  }),
+  'Unspecified',
+]
+
+const COMP_NUMERIC_KEYS = COMP_BUCKET_KEYS.filter(k => k !== 'Unspecified')
+const COMP_BUCKET_ORDER: Record<string, number> = {
+  ...Object.fromEntries([...COMP_NUMERIC_KEYS].reverse().map((k, i) => [k, i])),
+  'Unspecified': COMP_NUMERIC_KEYS.length - 1,
+}
+
+export function getCompensationBucket(item: Opportunity): string {
+  const v = item.active_version
+  const mult = ANNUAL_MULTIPLIERS[v.job_pay_period ?? ''] ?? 1
+  const min = v.job_pay_min != null ? v.job_pay_min * mult : null
+  const max = v.job_pay_max != null ? v.job_pay_max * mult : null
+  const annual = min != null && max != null ? (min + max) / 2 : (min ?? max)
+  if (annual == null) return 'Unspecified'
+  const k = annual / 1000
+  for (let i = COMP_BREAKPOINTS.length - 1; i >= 0; i--) {
+    if (k >= COMP_BREAKPOINTS[i]) {
+      const lo = COMP_BREAKPOINTS[i]
+      const hi = COMP_BREAKPOINTS[i + 1]
+      if (lo === 0 && hi != null) return `< ${hi}K`
+      return hi != null ? `${lo}K – ${hi}K` : `${lo}K+`
+    }
+  }
+  return '< 50K'
+}
+
 export const JOB_GROUP_BY_OPTIONS: Record<JobGroupByMode, JobGroupByOption> = {
   status: {
     label: 'Status',
@@ -141,7 +185,7 @@ export const JOB_GROUP_BY_OPTIONS: Record<JobGroupByMode, JobGroupByOption> = {
   organization_name: {
     label: 'Company',
     icon: Building2,
-    groupBy: (item) => item.active_version.organization_name ?? '(Unknown)',
+    groupBy: (item) => item.active_version.organization_name ?? '(Unspecified)',
     hideEmptyGroups: true,
   },
   title: {
@@ -150,6 +194,14 @@ export const JOB_GROUP_BY_OPTIONS: Record<JobGroupByMode, JobGroupByOption> = {
     groupBy: (item) => item.active_version.title?.[0]?.toUpperCase() ?? '#',
     groupByKeys: [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ', '#'],
     groupSortKey: (key) => key === '#' ? 27 : key.charCodeAt(0) - 65,
+    hideEmptyGroups: true,
+  },
+  compensation: {
+    label: 'Compensation',
+    icon: Coins,
+    groupBy: getCompensationBucket,
+    groupByKeys: COMP_BUCKET_KEYS,
+    groupSortKey: (key) => COMP_BUCKET_ORDER[key] ?? 99,
     hideEmptyGroups: true,
   },
 }

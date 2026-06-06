@@ -16,9 +16,10 @@ interface DropdownEditProps {
   onChange: (value: string) => void
   autoFocus?: boolean
   filterMode?: 'filter' | 'jump'
+  selectOnly?: boolean
 }
 
-export function DropdownEdit({value, options, placeholder = 'Search…', onChange, autoFocus, filterMode = 'filter'}: DropdownEditProps) {
+export function DropdownEdit({value, options, placeholder = 'Search…', onChange, autoFocus, filterMode = 'filter', selectOnly = false}: DropdownEditProps) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [width, setWidth] = useState<number>()
@@ -100,12 +101,14 @@ export function DropdownEdit({value, options, placeholder = 'Search…', onChang
               autoFocus={autoFocus}
               value={open ? query : (selected?.label ?? '')}
               placeholder={placeholder}
-              onChange={e => {
+              readOnly={selectOnly}
+              onChange={selectOnly ? undefined : e => {
                 setQuery(e.target.value);
                 if (!open) openDropdown()
               }}
+              onClick={selectOnly ? () => { if (!open) openDropdown() } : undefined}
               onKeyDown={sharedKeyDown}
-              className={`w-full pr-7 ${selected?.icon ? 'pl-8' : ''}`}
+              className={`w-full pr-7 ${selected?.icon ? 'pl-8' : ''} ${selectOnly ? 'cursor-pointer select-none' : ''}`}
             />
           <IconButton
             icon={ChevronDown}

@@ -1,7 +1,7 @@
 """CRUD and sub-resource routes for /opportunities"""
 
 from datetime import date
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -127,6 +127,28 @@ def update_opportunity(opportunity_id: str, request: UpdateOpportunityRequestDto
     typed = _parse_version_fields(updates)
     enriched = opportunity.model_copy(update={
         "active_version": opportunity.active_version.model_copy(update=typed)
+    })
+    return opp_dao.update(opportunity_id, enriched.active_version)
+
+
+class SetCompensationRequest(BaseModel):
+    job_pay_min: Optional[float] = None
+    job_pay_max: Optional[float] = None
+    job_pay_currency: Optional[str] = None
+    job_pay_period: Optional[str] = None
+
+
+@router.patch("/{opportunity_id}/compensation", response_model=Opportunity)
+def set_opportunity_compensation(opportunity_id: str, request: SetCompensationRequest):
+    """Update compensation fields, supporting explicit null to clear values."""
+    opportunity = opp_dao.get(opportunity_id)
+    if not opportunity:
+        raise HTTPException(status_code=404, detail="Opportunity not found")
+    updates = request.model_dump()  # include_none — explicit nulls clear fields
+    typed = _parse_version_fields({k: v for k, v in updates.items() if v is not None})
+    nulls = {k: None for k, v in updates.items() if v is None}
+    enriched = opportunity.model_copy(update={
+        "active_version": opportunity.active_version.model_copy(update={**typed, **nulls})
     })
     return opp_dao.update(opportunity_id, enriched.active_version)
 

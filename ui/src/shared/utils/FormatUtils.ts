@@ -60,7 +60,8 @@ export function formatPay(
   const c = currency ?? ''
   const p = period ? `/${period.toLowerCase()}` : ''
   if (payMin && payMax) return `${payMin.toLocaleString()}–${payMax.toLocaleString()} ${c}${p}`
-  return `${(payMin ?? payMax ?? 0).toLocaleString()} ${c}${p}`
+  if (payMax) return `Up to ${payMax.toLocaleString()} ${c}${p}`
+  return `${(payMin ?? 0).toLocaleString()} ${c}${p}`
 }
 
 export function pluralize(count: number, singular: string, plural: string): string {

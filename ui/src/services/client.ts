@@ -105,6 +105,7 @@ export const opportunities = {
   dismissSimilar: (id: string, neighborId: string) => apiFetch<void>(`/opportunities/${id}/similar/${neighborId}`, {method: 'DELETE'}),
   absorb: (id: string, neighborId: string) => apiFetch<void>(`/opportunities/${id}/absorb/${neighborId}`, {method: 'POST'}),
   setUrl: (id: string, url: string) => apiFetch<unknown>(`/opportunities/${id}/url`, {method: 'PATCH', body: JSON.stringify({url})}),
+  setCompensation: (id: string, data: {job_pay_min: number | null; job_pay_max: number | null; job_pay_currency: string | null; job_pay_period: string | null}) => apiFetch<unknown>(`/opportunities/${id}/compensation`, {method: 'PATCH', body: JSON.stringify(data)}),
 }
 
 // Inbox
