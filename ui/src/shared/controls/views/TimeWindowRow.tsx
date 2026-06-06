@@ -22,10 +22,8 @@ export function TimeWindowRow({label, icon: Icon, selected, onClick, count, allS
       <Icon size={16} className="shrink-0"/>
       <span className="flex-1 text-base text-label-darker">{label}</span>
       <span className="flex items-center gap-1.5 shrink-0">
-        {hasUnsorted
-          ? <span className="text-sm font-medium px-1.5 py-0.5 rounded-md bg-intent-info/90 text-white">{formatCount(count ?? 0)}</span>
-          : <span className="text-sm text-label-medium w-6 text-right">{formatCount(count ?? 0)}</span>
-        }
+        {hasUnsorted && <span className="w-2 h-2 rounded-full bg-intent-info shrink-0"/>}
+        <span className="text-sm text-label-medium w-6 text-right">{formatCount(count ?? 0)}</span>
       </span>
     </button>
   )
