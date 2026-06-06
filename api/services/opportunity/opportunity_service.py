@@ -89,8 +89,9 @@ class OpportunityService:
             organization_unit_name = sourced.pop("organization_unit_name", None)
             updates = {k: v for k, v in sourced.items() if v is not None}
             typed = _parse_version_fields(updates)
-            enriched = opportunity.model_copy(update={
-                "active_version": opportunity.active_version.model_copy(update=typed)
+            current = self._opp_dao.get(opportunity_id)
+            enriched = current.model_copy(update={
+                "active_version": current.active_version.model_copy(update=typed)
             })
             self._opp_dao.update(opportunity_id, enriched.active_version)
             if avatar_url:

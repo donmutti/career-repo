@@ -14,7 +14,6 @@ Your job:
 
 Use **only** these exact string values for enum fields:
 
-- `status`: `opened` | `started` | `completed` | `closed`
 - `job_contract_type`: `permanent` | `fixed_term` | `contractor`
 - `job_work_mode`: `onsite` | `remote` | `hybrid`
 - `job_pay_period`: `hourly` | `daily` | `monthly` | `annual` | `milestone`
@@ -54,7 +53,7 @@ Use **only** these exact string values for enum fields:
 
 Your last message must be exactly this — the JSON object, nothing before, nothing after:
 
-{"title":"Senior Software Engineer","organization_name":"Acme Corp","organization_unit_name":"Payments","description":"Lead engineering role...","location":"San Francisco, CA","score":8,"score_explanation":"{\"pros\":[\"Strong match for your backend engineering background\",\"Core stack is Go and Kubernetes — both areas of deep expertise\",\"Hybrid work model fits your preferences\",\"Compensation at $180–220k is within your target range\",\"Developer tooling domain aligns with your stated interests\"],\"cons\":[\"Requires 7+ years but role may skew more managerial than hands-on\",\"San Francisco location may require occasional travel\",\"No mention of equity structure\"]}","status":"opened","job_contract_type":"permanent","job_work_mode":"hybrid","avatar_url":"https://www.google.com/s2/favicons?domain=acme.com&sz=32"}
+{"title":"Senior Software Engineer","organization_name":"Acme Corp","organization_unit_name":"Payments","description":"Lead engineering role...","location":"San Francisco, CA","score":8,"score_explanation":"{\"pros\":[\"Strong match for your backend engineering background\",\"Core stack is Go and Kubernetes — both areas of deep expertise\",\"Hybrid work model fits your preferences\",\"Compensation at $180–220k is within your target range\",\"Developer tooling domain aligns with your stated interests\"],\"cons\":[\"Requires 7+ years but role may skew more managerial than hands-on\",\"San Francisco location may require occasional travel\",\"No mention of equity structure\"]}","job_contract_type":"permanent","job_work_mode":"hybrid","avatar_url":"https://www.google.com/s2/favicons?domain=acme.com&sz=32"}
 
 ## Input
 
