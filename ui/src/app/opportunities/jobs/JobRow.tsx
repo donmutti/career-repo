@@ -40,7 +40,7 @@ export function JobRow({opportunity: o, navigateTo, selected, isChanging, onScor
       <div className="flex-1 min-w-0">
         <div className={`one-liner text-base ${isChanging ? 'text-label-medium' : 'text-label-darker'}`}>{title || o.url}</div>
       </div>
-      <div className="flex items-center gap-1 shrink-0 min-w-6">
+      <div className="flex items-center gap-1.5 shrink-0 min-w-6">
         {isChanging ? <Spinner/> : (
           <>
             <IconButton
