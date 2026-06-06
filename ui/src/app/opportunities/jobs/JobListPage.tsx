@@ -49,7 +49,13 @@ export default function JobListPage() {
     return acc
   }, {})
 
-  const g = (key: string) => byStatus[key] ?? []
+  // Checks if an item is new and unscored yet
+  const isNewUnscored = (o: Opportunity) => o.sourcing_started_at != null && o.sourcing_completed_at == null && o.active_version.score == null
+
+  // Groups by status, with new unscored lifted to the top for visibility
+  const g = (key: string) => (byStatus[key] ?? []).slice().sort((a, b) => +isNewUnscored(b) - +isNewUnscored(a))
+
+  // Groups scored by status
   const groups = [
     {key: 'started', label: STATUS_LABELS.started, count: g('started').length, items: g('started')},
     {key: 'shortlisted', label: STATUS_LABELS.shortlisted, count: g('shortlisted').length, items: g('shortlisted')},
