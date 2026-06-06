@@ -16,6 +16,10 @@ import {JobView} from './JobView'
 import {AddJobBar} from './AddJobBar'
 import {useOpportunities} from '@/app/opportunities/useOpportunities'
 import {ScoreDialog} from '@/shared/controls/dialogs/ScoreDialog'
+import {useMutation} from '@tanstack/react-query'
+import {opportunities as opApi} from '@/services/client'
+import {queryClient} from '@/services/queryClient'
+import {queryKeys} from '@/services/queryKeys'
 
 
 export default function JobListPage() {
@@ -32,6 +36,11 @@ export default function JobListPage() {
     return () => setActiveType(null)
   }, [setActiveType])
   const {opportunities, isLoading} = useOpportunities()
+
+  const rescoreMutation = useMutation({
+    mutationFn: (id: string) => opApi.source(id),
+    onSuccess: () => queryClient.invalidateQueries({queryKey: queryKeys.opportunities}),
+  })
 
   const jobs = filterByTimeWindow(opportunities.filter(o => o.type === 'job'), timeWindow)
 
@@ -103,6 +112,7 @@ export default function JobListPage() {
                     selected={item.id === selectedId}
                     isChanging={item.sourcing_started_at != null && item.sourcing_completed_at == null}
                     onScoreBadgeClick={() => setScoreDialogOpportunity(item)}
+                    onRescore={() => rescoreMutation.mutate(item.id)}
                   />
                 )}
               />

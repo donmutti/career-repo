@@ -8,6 +8,7 @@ interface IconButtonProps {
   icon: LucideIcon
   label: string
   tooltip?: boolean
+  tooltipPosition?: 'top' | 'right' | 'bottom' | 'left'
   onClick?: (e: MouseEvent<HTMLButtonElement>) => void
   active?: boolean
   danger?: boolean
@@ -18,7 +19,7 @@ interface IconButtonProps {
 }
 
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps & ButtonHTMLAttributes<HTMLButtonElement>>(
-  ({icon: Icon, label, tooltip = true, onClick, active, danger, disabled, size = 'md', className = '', iconClassName = '', ...rest}, ref) => {
+  ({icon: Icon, label, tooltip = true, tooltipPosition = 'bottom', onClick, active, danger, disabled, size = 'md', className = '', iconClassName = '', ...rest}, ref) => {
     const iconSize = size === 'sm' ? 16 : size === 'md' ? 18 : size as number
     const sizeClass = size === 'sm' ? 'w-6 h-6' : size === 'md' ? 'w-7 h-7' : 'w-7 h-7'
     const color = danger ? 'var(--color-intent-danger)' : active ? 'var(--color-action)' : 'var(--color-label-dark)'
@@ -45,7 +46,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps & Button
     if (!tooltip) return button
 
     return (
-      <Tooltip content={label} side="bottom">
+      <Tooltip content={label} side={tooltipPosition}>
         {button}
       </Tooltip>
     )
