@@ -114,6 +114,7 @@ export const inbox = {
   status: () => apiFetch<{ last_scanned_at: string | null }>('/inbox/status'),
   counts: () => apiFetch<{ today: number; yesterday: number; last7: number; last30: number }>(`/inbox/counts?today=${new Date().toISOString().slice(0, 10)}`),
   sortedCounts: () => apiFetch<Record<string, [number, number]>>('/inbox/sorted-counts'),
+  listPending: () => apiFetch<unknown>('/inbox/pending'),
   list: (params?: { from_date?: string; to_date?: string }) => {
     const q = new URLSearchParams()
     if (params?.from_date) q.set('from_date', params.from_date)

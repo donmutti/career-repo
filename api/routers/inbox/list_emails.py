@@ -12,6 +12,12 @@ router = APIRouter(prefix="/inbox", tags=["inbox"])
 email_dao = InboxEmailDAO()
 
 
+@router.get("/pending", response_model=list[InboxEmail])
+def list_pending_emails():
+    """List emails that have at least one pending (unsorted) opportunity."""
+    return email_dao.list_pending()
+
+
 @router.get("", response_model=list[InboxEmail])
 def list_emails(
     from_date: Optional[str] = Query(None),

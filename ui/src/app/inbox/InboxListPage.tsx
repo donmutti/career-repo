@@ -11,7 +11,7 @@ import {IconButton} from '@/shared/controls/buttons/IconButton'
 import {ConfirmationDialog} from '@/shared/controls/dialogs/ConfirmationDialog'
 import {InboxEmailRow} from './InboxEmailRow'
 import {InboxEmailView} from './InboxEmailView'
-import {TIME_WINDOWS, getDateRange} from '@/shared/controls/views/TimeWindowTypes'
+import {PENDING_WINDOW, TIME_WINDOWS, getDateRange} from '@/shared/controls/views/TimeWindowTypes'
 import {inbox as inboxApi} from '@/services/client'
 import {queryKeys} from '@/services/queryKeys'
 import {pluralize} from '@/shared/utils/FormatUtils'
@@ -34,12 +34,13 @@ export default function InboxListPage() {
   const [declineConfirmOpen, setDeclineConfirmOpen] = useState(false)
   const [isDeclinePending, setIsDeclinePending] = useState(false)
 
-  const activeLabel = TIME_WINDOWS.find(w => w.key === activeWindow)?.label ?? 'Emails'
+  const activeLabel = [...TIME_WINDOWS, PENDING_WINDOW].find(w => w.key === activeWindow)?.label ?? 'Emails'
   const dateRange = getDateRange(activeWindow)
+  const isPending = activeWindow === 'pending'
 
   const {data: emailsData, isLoading} = useQuery({
     queryKey: queryKeys.inboxList(activeWindow),
-    queryFn: () => inboxApi.list(dateRange),
+    queryFn: () => isPending ? inboxApi.listPending() : inboxApi.list(dateRange),
   })
   const emails = (emailsData as InboxEmail[] | undefined) ?? []
 
@@ -67,6 +68,7 @@ export default function InboxListPage() {
     await inboxApi.declinePending(emails.map(e => e.id))
     queryClient.invalidateQueries({queryKey: queryKeys.inboxSortedCounts})
     queryClient.invalidateQueries({queryKey: queryKeys.inboxCounts})
+    queryClient.invalidateQueries({queryKey: queryKeys.inboxList('pending')})
     setIsDeclinePending(false)
     setDeclineConfirmOpen(false)
   }
@@ -75,7 +77,7 @@ export default function InboxListPage() {
     <div className="flex items-center gap-3">
       {totalWithOppos > 0 && (
         <span className="flex items-center gap-1.5 text-sm text-label-medium">
-          {unsortedEmails === 0 ? `All ${totalWithOppos} sorted` : `${unsortedEmails} ${pluralize(unsortedEmails, 'decision', 'decisions')} to make`}
+          {unsortedEmails === 0 ? `All ${totalWithOppos} ${pluralize(totalWithOppos, 'email', 'emails')} sorted` : `${unsortedEmails} ${pluralize(unsortedEmails, 'email', 'emails')} pending decision`}
         </span>
       )}
       <DropdownButton
@@ -97,8 +99,8 @@ export default function InboxListPage() {
           {emails.length === 0 && !isLoading ? (
             <EmptyState
               icon={Mail}
-              title="No emails"
-              description="No emails for this period."
+              title={activeWindow === 'pending' ? 'All clear' : 'No emails'}
+              description={activeWindow === 'pending' ? 'No pending decisions.' : 'No emails for this period.'}
               className="flex flex-col items-center gap-2 p-8 text-center text-label-light pt-[250px]"
             />
           ) : (

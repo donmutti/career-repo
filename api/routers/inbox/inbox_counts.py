@@ -1,6 +1,7 @@
 """GET /inbox/counts, GET /inbox/sorted-counts"""
 
 from datetime import date
+from typing import Optional
 
 from fastapi import APIRouter
 
@@ -13,7 +14,7 @@ email_opp_dao = EmailOpportunityDAO()
 
 
 @router.get("/counts")
-def inbox_counts(today: str = None):
+def inbox_counts(today: Optional[str] = None):
     """Return email counts for standard time windows."""
     if not today:
         today = date.today().isoformat()

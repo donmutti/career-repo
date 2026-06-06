@@ -9,7 +9,7 @@ import {TimeWindowRow} from '@/shared/controls/views/TimeWindowRow'
 import {IconButton} from '@/shared/controls/buttons/IconButton'
 import {DropdownButton} from '@/shared/controls/buttons/DropdownButton'
 import {ConfirmationDialog} from '@/shared/controls/dialogs/ConfirmationDialog'
-import {TIME_WINDOWS} from '@/shared/controls/views/TimeWindowTypes'
+import {PENDING_WINDOW, TIME_WINDOWS} from '@/shared/controls/views/TimeWindowTypes'
 import {inbox as inboxApi} from '@/services/client'
 import {queryKeys} from '@/services/queryKeys'
 import {queryClient} from '@/services/queryClient'
@@ -20,7 +20,6 @@ import {useInboxScan} from './useInboxScan'
 
 export type InboxContext = {
   activeWindow: string
-  setActiveWindow: (w: string) => void
 }
 
 export default function InboxPage() {
@@ -39,7 +38,7 @@ export default function InboxPage() {
     queryKey: queryKeys.inboxCounts,
     queryFn: inboxApi.counts,
   })
-  const counts = countsData as { today: number; yesterday: number; last7: number; last30: number; today_all_sorted: boolean; yesterday_all_sorted: boolean; last7_all_sorted: boolean; last30_all_sorted: boolean } | undefined
+  const counts = countsData as { all: number; today: number; yesterday: number; last7: number; last30: number; all_pending: number } | undefined
 
   const {scanning, elapsed, progress, start, cancel} = useInboxScan(activeWindow)
 
@@ -91,25 +90,28 @@ export default function InboxPage() {
         />
         <PaneBody>
           <div className="py-2 px-1">
-            <ListView
-              items={TIME_WINDOWS}
-              getItemKey={(w) => w.key}
-              renderItem={(w) => (
+            {(() => {
+              const navRow = (w: typeof PENDING_WINDOW, count: number | undefined, showDot?: boolean) => (
                 <TimeWindowRow
                   key={w.key}
                   label={w.label}
                   icon={w.icon}
                   selected={activeWindow === w.key}
-                  onClick={() => {
-                    setActiveWindow(w.key);
-                    LocalStorageUtils.set('inbox.window', w.key);
-                    navigate('/inbox')
-                  }}
-                  count={counts?.[w.key as keyof typeof counts] as number | undefined}
-                  allSorted={counts?.[`${w.key}_all_sorted` as keyof typeof counts] as boolean | undefined}
+                  onClick={() => { setActiveWindow(w.key); LocalStorageUtils.set('inbox.window', w.key); navigate('/inbox') }}
+                  count={count}
+                  allSorted={showDot && (count ?? 0) > 0 ? false : undefined}
+                  showDot={showDot}
                 />
-              )}
-            />
+              )
+              return (
+                <>
+                  <ListView items={TIME_WINDOWS} getItemKey={(w) => w.key} renderItem={(w) => navRow(w, counts?.[w.key as keyof typeof counts] as number | undefined)}/>
+                  <div className="border-t border-frame-lighter mt-2 pt-2">
+                    <ListView items={[PENDING_WINDOW]} getItemKey={(w) => w.key} renderItem={(w) => navRow(w, counts?.all_pending ?? 0, true)}/>
+                  </div>
+                </>
+              )
+            })()}
           </div>
         </PaneBody>
       </div>

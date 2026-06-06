@@ -55,6 +55,18 @@ class InboxEmailDAO(BaseEntityDAO[InboxEmail]):
         )
         return {row["external_id"] for row in cursor.fetchall()}
 
+    def list_pending(self) -> List[InboxEmail]:
+        """List emails that have at least one unsorted (pending) opportunity, newest first."""
+        cursor = self._execute("""
+            select e.* from inbox_email e
+            where exists (
+                select 1 from email_opportunity eo
+                where eo.inbox_email_id = e.id and eo.status = 'pending'
+            )
+            order by e.received_at desc
+        """)
+        return [self._from_dict(dict(row)) for row in cursor.fetchall()]
+
     def list_all(self, from_date: Optional[str] = None, to_date: Optional[str] = None) -> List[InboxEmail]:
         """List emails ordered by received date descending, optionally filtered by date range."""
         query = "select * from inbox_email"
@@ -102,6 +114,9 @@ class InboxEmailDAO(BaseEntityDAO[InboxEmail]):
             relevant = [r for r in sorted_rows if r["rdate"] in window_dates]
             return bool(relevant) and all(r["sorted"] == r["total"] for r in relevant)
 
+        def pending_for(window_dates: list[str]) -> int:
+            return sum(1 for r in sorted_rows if r["rdate"] in window_dates and r["sorted"] < r["total"])
+
         from datetime import date, timedelta
         d = date.fromisoformat(today)
         today_dates = [today]
@@ -121,6 +136,11 @@ class InboxEmailDAO(BaseEntityDAO[InboxEmail]):
             "yesterday_all_sorted": all_sorted_for(yesterday_dates),
             "last7_all_sorted": all_sorted_for(last7_dates),
             "last30_all_sorted": all_sorted_for(last30_dates),
+            "all_pending": pending_for(all_dates),
+            "today_pending": pending_for(today_dates),
+            "yesterday_pending": pending_for(yesterday_dates),
+            "last7_pending": pending_for(last7_dates),
+            "last30_pending": pending_for(last30_dates),
         }
 
     def last_scanned_at(self) -> Optional[str]:
