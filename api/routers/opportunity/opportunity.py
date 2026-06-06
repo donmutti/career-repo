@@ -143,7 +143,7 @@ def set_opportunity_url(opportunity_id: str, request: SetUrlRequest):
     old_url = opportunity.url
     new_url = request.url.strip()
     opp_dao.set_url(opportunity_id, new_url)
-    comment_dao.create(opportunity_id, CommentVersion(body=f"Changed URL from {old_url} to {new_url}"))
+    comment_dao.create(opportunity_id, CommentVersion(body=f"Changed URL from {old_url or 'empty'} to {new_url or 'empty'}"))
     return opp_dao.get(opportunity_id)
 
 

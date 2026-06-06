@@ -39,6 +39,7 @@ export function JobView({opportunityId}: JobViewProps) {
   const [addingNote, setAddingNote] = useState(false)
   const [descriptionEditing, setDescriptionEditing] = useState(false)
   const [scoreDialogOpen, setScoreDialogOpen] = useState(false)
+  const [clearUrlDialogOpen, setClearUrlDialogOpen] = useState(false)
 
   const {
     opportunity,
@@ -200,7 +201,7 @@ export function JobView({opportunityId}: JobViewProps) {
               onSource={() => source()}
               onGenerateCoverLetter={() => generateCoverLetter()}
               onSetUrl={() => { setUrlInput(opportunity.url ?? ''); setSetUrlDialogOpen(true) }}
-              onClearUrl={() => setUrl('')}
+              onClearUrl={() => setClearUrlDialogOpen(true)}
               onMergeInto={() => setMergeIntoDialogOpen(true)}
               onDelete={() => setDeleteDialogOpen(true)}
             />
@@ -368,6 +369,17 @@ export function JobView({opportunityId}: JobViewProps) {
         similarOpportunities={similarOpportunities as OpportunitySimilarity[]}
         onMerge={(canonicalId) => mergeInto(canonicalId)}
         isMerging={isMergingInto}
+      />
+
+      {/* Clear URL dialog */}
+      <ConfirmationDialog
+        open={clearUrlDialogOpen}
+        onOpenChange={setClearUrlDialogOpen}
+        title="Clear URL"
+        body="This will remove the URL from this opportunity."
+        primaryActionLabel="Clear URL"
+        onConfirm={() => { setUrl(''); setClearUrlDialogOpen(false) }}
+        isSubmitting={isSettingUrl}
       />
 
       {/* Delete dialog */}
