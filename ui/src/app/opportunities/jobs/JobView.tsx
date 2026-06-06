@@ -200,6 +200,7 @@ export function JobView({opportunityId}: JobViewProps) {
               onSource={() => source()}
               onGenerateCoverLetter={() => generateCoverLetter()}
               onSetUrl={() => { setUrlInput(opportunity.url ?? ''); setSetUrlDialogOpen(true) }}
+              onClearUrl={() => setUrl('')}
               onMergeInto={() => setMergeIntoDialogOpen(true)}
               onDelete={() => setDeleteDialogOpen(true)}
             />

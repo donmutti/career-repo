@@ -32,9 +32,9 @@ export function JobRow({opportunity: o, navigateTo, selected, isChanging, onScor
   const {title, score} = o.active_version
 
   return (
-    <button
+    <div
       onClick={() => navigate(navigateTo)}
-      className={`group flex items-center gap-2 pl-3 w-full text-left px-3 h-[38px] ${selected ? 'hovered' : 'hoverable'}`}
+      className={`group flex items-center gap-2 pl-3 w-full text-left px-3 h-[38px] cursor-pointer ${selected ? 'hovered' : 'hoverable'}`}
     >
       <CompanyAvatar url={o.url} avatarUrl={o.avatar_url}/>
       <div className="flex-1 min-w-0">
@@ -46,23 +46,16 @@ export function JobRow({opportunity: o, navigateTo, selected, isChanging, onScor
             <IconButton
               label="Re-score"
               icon={RefreshCw}
-              tooltip={true}
               tooltipPosition="left"
-              onClick={(e) => {
-                e.stopPropagation();
-                onRescore?.()
-              }}
-              className="invisible group-hover:visible auxiliary w-6 h-6 hoverable-text"
+              onClick={(e) => { e.stopPropagation(); onRescore?.() }}
+              className="invisible group-hover:visible"
             />
-            <button onClick={(e) => {
-              e.stopPropagation();
-              onScoreBadgeClick?.()
-            }}>
+            <button onClick={(e) => { e.stopPropagation(); onScoreBadgeClick?.() }}>
               <ScoreBadge score={score} size="sm"/>
             </button>
           </>
         )}
       </div>
-    </button>
+    </div>
   )
 }
