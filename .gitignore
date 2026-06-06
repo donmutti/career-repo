@@ -28,6 +28,9 @@ ui/src/api/generated/
 # macOS
 .DS_Store
 
+# Personal notes
+CUSTOMIZABLE-COVER-LETTERS.md
+
 # Claude Code (local/personal, except shared commands, skills, and agents)
 .claude/**
 !.claude/agents/
