@@ -45,7 +45,7 @@ Use **only** these exact string values for enum fields:
 ## Avatar URL
 
 - Include `avatar_url`: the favicon of the hiring organization. If `avatar_url` is already set in the input record, keep it as-is. Otherwise try in order:
-  1. Google's favicon service using the hiring organization's primary domain: `https://www.google.com/s2/favicons?domain=<org-primary-domain>&sz=32` (e.g. for Revolut: `https://www.google.com/s2/favicons?domain=revolut.com&sz=32`). No HTTP check needed — always resolves.
+  1. Google's favicon service using the hiring organization's primary domain: `https://www.google.com/s2/favicons?domain=<org-primary-domain>&sz=32` (e.g. for Revolut: `https://www.google.com/s2/favicons?domain=revolut.com&sz=32`). No HTTP check needed — always resolves. **Never use `t0.gstatic.com/faviconV2` or any `*.gstatic.com` favicon URL — these return 404.**
   2. If an opportunity URL is available and step 1 is not possible (org domain unknown): fetch the page, find `<link rel="icon">` tags in `<head>`, HTTP HEAD each href (prefer larger sizes, absolute URLs), use the first that returns HTTP 200. If none, try `<origin>/favicon.ico` and `<origin>/favicon.svg`.
   Only omit the field if you cannot determine the organization's name or domain and no opportunity URL is available.
 
