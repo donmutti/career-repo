@@ -146,6 +146,11 @@ export function useOpportunity(opportunityId: string, options: UseOpportunityOpt
       queryClient.invalidateQueries({queryKey: queryKeys.opportunity(opportunityId)})
       queryClient.invalidateQueries({queryKey: queryKeys.opportunities})
     },
+    onError: () => {
+      setIsSourcing(false)
+      queryClient.invalidateQueries({queryKey: queryKeys.opportunity(opportunityId)})
+      queryClient.invalidateQueries({queryKey: queryKeys.opportunities})
+    },
   })
 
   const deleteAttachmentMutation = useMutation({

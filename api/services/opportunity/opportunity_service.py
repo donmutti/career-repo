@@ -80,10 +80,10 @@ class OpportunityService:
                     "work_experiences": [we.model_dump(mode="json") for we in work_experiences] if work_experiences else [],
                 }, timeout=180.0)
                 sourced = result.output
-            except Exception:
+            except BaseException:
                 self._opp_dao.set_sourcing_completed(opportunity_id)
                 run.fail()
-                return
+                raise
 
             avatar_url = sourced.pop("avatar_url", None)
             organization_unit_name = sourced.pop("organization_unit_name", None)
