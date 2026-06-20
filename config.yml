@@ -13,7 +13,7 @@ db:
   images_path: "./db/images"
 
 inbox:
-  scan_days: 60
+  scan_days: 30
   scan_batch_size: 10
   scan_keywords:
     - "job"
