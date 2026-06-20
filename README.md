@@ -31,8 +31,9 @@ Career Repo is designed for one person running:
 - **No server storage** – all data lives in a local SQLite database. To save your data remotely, commit `db/data.json` to your remote repo.
 - **No multi-device access** – the app runs on one machine at a time. To move between devices, commit `db/data.json`, pull it on the other machine, and restart the app.
 - **No access control** – no login or sessions. Data is accessible to anyone with access to your machine.
-- **One Gmail account** – the Gmail MCP plugin authenticates to a single Google account. Emails at other addresses are not scanned unless forwarded to the connected account.
+- **One Gmail account** – the Gmail MCP authenticates to a single Google account. Emails at other addresses are not scanned unless forwarded to the connected account.
 - **One Claude Code account** – AI operations (sourcing, cover letter generation) run through your local Claude Code CLI. Concurrent use from multiple sessions is not supported.
+- **CLI-configured model** – AI features use whatever model the Claude Code CLI is currently set to. To pin a specific model, set it in your Claude Code CLI config.
 
 ---
 
@@ -41,9 +42,11 @@ Career Repo is designed for one person running:
 **Prerequisites:**
 
 - [Git](https://git-scm.com/downloads) – version control, needed to clone the repo
-- [uv](https://docs.astral.sh/uv/getting-started/installation/) – Python package manager, needed to install Python dependencies
+- [uv](https://docs.astral.sh/uv/getting-started/installation/) – Python package manager, needed to install Python dependencies (also auto-downloads Python 3.13+ if needed)
 - [Node.js 20+](https://nodejs.org) – JavaScript runtime, needed to run the UI dev server
-- [Claude Code CLI](https://code.claude.com) – local AI assistant, needed to run AI features (job scoring, cover letter generation, etc.)
+- [Claude Code CLI](https://code.claude.com) – local AI assistant, needed to run AI features (job scoring, cover letter generation, etc.). After install:
+  - authenticate with `claude login`
+  - register the Gmail MCP server with `claude mcp add --transport http gmail https://gmailmcp.googleapis.com/mcp/v1`
 
 **Checkout:**
 
@@ -60,9 +63,9 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 uv pip install -e .       # install app dependencies in editable mode
 ```
 
-**Configure:**
+**Configure** (optional):
 
-Edit `config.yml` at the repo root to customize API and UI ports and database paths:
+Defaults work out of the box. Edit `config.yml` at the repo root only if you need to change API/UI ports or database paths:
 
 ```yaml
 api:
@@ -85,7 +88,7 @@ db:
 Start the API server (database initializes automatically on first run):
 
 ```bash
-python3 api/main.py
+venv/bin/python api/main.py
 ```
 
 In a second terminal, start the UI:
@@ -101,7 +104,29 @@ Open `http://localhost:3000` (or whichever port is set in `config.yml`) in your 
 Press `Ctrl+C` in each terminal, or:
 
 ```bash
-pkill -f "python3 api/main.py"
+pkill -f "api/main.py"
+```
+
+**Clean-up:**
+
+Revert the repo to a clean checkout state. Your user data will be preserved:
+
+```bash
+# Delete Python virtual environment and build/cache artifacts
+rm -rf venv
+find . -type d -name __pycache__ -prune -exec rm -rf {} +
+find . -type d -name '*.egg-info' -prune -exec rm -rf {} +
+find . -type d -name build -prune -exec rm -rf {} +
+rm -rf .pytest_cache
+
+# Delete UI dependencies and build output
+rm -rf ui/node_modules
+rm -rf ui/dist
+rm -rf ui/src/api/generated
+
+# Delete runtime caches and database files (your user data will sirvive)
+rm -rf .cache
+rm -f db/data.db db/data.db-shm db/data.db-wal
 ```
 
 ---
