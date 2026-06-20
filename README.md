@@ -124,7 +124,8 @@ rm -rf ui/node_modules
 rm -rf ui/dist
 rm -rf ui/src/api/generated
 
-# Delete runtime caches and database files (your user data will sirvive)
+# Delete logs, runtime caches and database files (your user data will survive)
+rm -rf .logs
 rm -rf .cache
 rm -f db/data.db db/data.db-shm db/data.db-wal
 ```

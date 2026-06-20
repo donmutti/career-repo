@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bash \"*start.sh\")",
+      "Bash(bash \"*stop.sh\")",
+      "Bash(pkill -f \"api/main.py\"*)",
+      "Bash(pkill -f \"vite\"*)"
+    ]
+  }
+}

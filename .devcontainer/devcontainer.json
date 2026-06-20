@@ -2,7 +2,7 @@
   "name": "Career Repo",
   "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
   "onCreateCommand": "curl -LsSf https://astral.sh/uv/install.sh | sh && ~/.local/bin/uv venv --clear venv && . venv/bin/activate && ~/.local/bin/uv pip install -e . && cd ui && npm install",
-  "postStartCommand": "export PATH=$HOME/.local/bin:$PATH && . /workspaces/career-repo/venv/bin/activate && cd /workspaces/career-repo && nohup python3 api/main.py > /tmp/api.log 2>&1 & nohup bash -c 'cd /workspaces/career-repo/ui && npm run dev' > /tmp/ui.log 2>&1 &",
+  "postStartCommand": "export PATH=$HOME/.local/bin:$PATH && mkdir -p /workspaces/career-repo/.logs && cd /workspaces/career-repo && nohup venv/bin/python api/main.py > .logs/career-api.log 2>&1 & nohup bash -c 'cd /workspaces/career-repo/ui && npm run dev' > .logs/career-ui.log 2>&1 &",
   "forwardPorts": [8000, 3000],
   "portsAttributes": {
     "8000": { "label": "API", "onAutoForward": "silent" },

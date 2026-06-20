@@ -24,6 +24,9 @@ ui/node_modules/
 ui/dist/
 ui/src/api/generated/
 
+# Dev server logs
+.logs/
+
 # Local model cache
 .cache/
 
@@ -33,7 +36,7 @@ ui/src/api/generated/
 # Personal notes
 CUSTOMIZABLE-COVER-LETTERS.md
 
-# Claude Code (local/personal, except shared commands, skills, and agents)
+# Claude Code (local/personal, except shared commands, skills, agents, and settings)
 .claude/**
 !.claude/agents/
 !.claude/agents/**
@@ -41,3 +44,4 @@ CUSTOMIZABLE-COVER-LETTERS.md
 !.claude/skills/**
 !.claude/commands/
 !.claude/commands/**
+!.claude/settings.json
