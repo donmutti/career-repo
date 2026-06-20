@@ -21,10 +21,11 @@ interface GroupedListViewProps<T> {
   groupBy?: (item: T) => string
   groupByKeys?: string[]
   groupSortKey?: (groupKey: string) => number
+  groupLabel?: (groupKey: string) => string
   groupLabelDetail?: (groupKey: string) => ReactNode
 }
 
-export function GroupedListView<T>({groups: propGroups, row, hideEmptyGroups, collapseEmptyGroups, showGroupDividers, groupBy, groupByKeys, groupSortKey, groupLabelDetail}: GroupedListViewProps<T>) {
+export function GroupedListView<T>({groups: propGroups, row, hideEmptyGroups, collapseEmptyGroups, showGroupDividers, groupBy, groupByKeys, groupSortKey, groupLabel, groupLabelDetail}: GroupedListViewProps<T>) {
   const groups = groupBy
     ? (() => {
         const allItems = propGroups.flatMap(g => g.items)
@@ -38,7 +39,7 @@ export function GroupedListView<T>({groups: propGroups, row, hideEmptyGroups, co
         }
         return Object.entries(buckets)
           .sort(([a], [b]) => groupSortKey ? groupSortKey(a) - groupSortKey(b) : a.localeCompare(b))
-          .map(([key, items]) => ({key, label: key, count: items.length, items}))
+          .map(([key, items]) => ({key, label: groupLabel ? groupLabel(key) : key, count: items.length, items}))
       })()
     : propGroups
 

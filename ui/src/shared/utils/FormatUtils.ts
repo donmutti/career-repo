@@ -68,6 +68,22 @@ export function pluralize(count: number, singular: string, plural: string): stri
   return count === 1 ? singular : plural
 }
 
+export function dateBucketKey(value: string): string {
+  const d = parseUtc(value)
+  const now = new Date()
+  const isThisMonth = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
+  if (isThisMonth) return value.slice(0, 10)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
+}
+
+export function formatDateBucketKey(key: string): string {
+  const d = parseUtc(key)
+  const now = new Date()
+  const isThisMonth = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
+  if (isThisMonth) return d.toLocaleDateString('en-US', {month: 'short', day: 'numeric'})
+  return d.toLocaleDateString('en-US', {month: 'short', year: 'numeric'})
+}
+
 export function formatDateAgo(value: string | Date): string {
   const date = value instanceof Date ? value : parseUtc(value)
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000)

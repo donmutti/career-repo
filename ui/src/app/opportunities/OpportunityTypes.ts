@@ -1,5 +1,6 @@
 import {ReactNode} from 'react'
-import {BookOpen, BriefcaseBusiness, Building2, Coins, Folder, GraduationCap, Hash, LucideIcon, Signpost, SquareUserRound, Users} from 'lucide-react'
+import {BookOpen, BriefcaseBusiness, Building2, CalendarDays, Coins, Folder, GraduationCap, Hash, LucideIcon, Signpost, SquareUserRound, Users} from 'lucide-react'
+import {dateBucketKey, formatDateBucketKey} from '@/shared/utils/FormatUtils'
 
 export interface OpportunityVersion {
   status: string
@@ -76,7 +77,7 @@ export const STATUS_GROUPS = [
   {key: 'closed', label: STATUS_LABELS.closed},
 ]
 
-export type JobGroupByMode = 'status' | 'organization_name' | 'score' | 'title' | 'compensation'
+export type JobGroupByMode = 'status' | 'organization_name' | 'score' | 'title' | 'compensation' | 'date'
 
 export interface JobGroupByOption {
   label: string
@@ -84,6 +85,7 @@ export interface JobGroupByOption {
   groupBy?: (item: Opportunity) => string
   groupByKeys?: string[]
   groupSortKey?: (key: string) => number
+  groupLabel?: (key: string) => string
   groupLabelDetail?: (key: string) => ReactNode
   hideEmptyGroups: boolean
   collapseEmptyGroups?: boolean
@@ -167,6 +169,14 @@ export function getCompensationBucket(item: Opportunity): string {
 }
 
 export const JOB_GROUP_BY_OPTIONS: Record<JobGroupByMode, JobGroupByOption> = {
+  date: {
+    label: 'Date',
+    icon: CalendarDays,
+    groupBy: (item) => dateBucketKey(item.active_version.opened_on ?? item.created_at.slice(0, 10)),
+    groupSortKey: (key) => -Number(key.replaceAll('-', '')),
+    groupLabel: formatDateBucketKey,
+    hideEmptyGroups: true,
+  },
   status: {
     label: 'Status',
     icon: Signpost,
