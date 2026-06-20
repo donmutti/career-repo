@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 
-from ...db import EmailOpportunityDAO
+from ...db import EmailOpportunityDAO, InboxEmailDAO
 from ...db.daos.opportunity.base.opportunity_dao import OpportunityDAO
 from ...db.daos.opportunity.meta.comment_dao import CommentDAO
 from ...models.entities import EmailOpportunity
@@ -19,6 +19,7 @@ from ...services.opportunity import OpportunityService
 router = APIRouter(prefix="/inbox", tags=["inbox"])
 
 email_opp_dao = EmailOpportunityDAO()
+email_dao = InboxEmailDAO()
 opportunity_dao = OpportunityDAO()
 comment_dao = CommentDAO()
 opp_service = OpportunityService()
@@ -46,10 +47,12 @@ async def patch_email_opportunity(eo_id: str, body: PatchEmailOpportunityDto):
 
     if body.status == "extracted" and not eo.opportunity_id:
         opp_type = OpportunityType(eo.type) if eo.type in OpportunityType._value2member_map_ else OpportunityType.JOB
+        email = email_dao.get(eo.inbox_email_id)
+        opened_on = date.fromisoformat(email.received_at[:10]) if email else date.today()
         version = OpportunityVersion(
             status=OpportunityStatus.OPENED,
             title=eo.title,
-            opened_on=date.today(),
+            opened_on=opened_on,
             organization_name=eo.organization_name,
         )
         opportunity_id = opportunity_dao.create(eo.url or None, opp_type, version)
