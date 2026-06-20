@@ -34,7 +34,7 @@ def close_db_connection():
 
 
 def init_db():
-    """Hydrate from dump if this is a fresh DB with existing dump, then run pending migrations."""
+    """Run pending migrations, then hydrate from dump if this is a fresh DB with an existing dump."""
     from api.db.migrations import run_migrations
 
     dump_path = ROOT / get_dump_path()
@@ -42,10 +42,10 @@ def init_db():
     conn = get_db_connection()
     is_fresh = conn.execute("SELECT count(*) FROM sqlite_master WHERE type='table'").fetchone()[0] == 0
 
+    run_migrations(conn)
+
     if is_fresh and dump_path.exists():
         _hydrate_from_dump(conn, dump_path)
-
-    run_migrations(conn)
 
 
 def _hydrate_from_dump(conn: sqlite3.Connection, dump_path: Path):
@@ -56,16 +56,6 @@ def _hydrate_from_dump(conn: sqlite3.Connection, dump_path: Path):
     if not dump:
         return
 
-    # Restore migration history so run_migrations knows what's already applied
-    from api.db.migrations import _ensure_migration_table, _mark_all_applied
-    _ensure_migration_table(conn)
-    if "schema_migration" in dump:
-        _insert_table_data(conn, "schema_migration", dump["schema_migration"])
-    else:
-        # Legacy dump without migration history — mark all current migrations as applied
-        _mark_all_applied(conn)
-
-    # Insert data following foreign key constraints
     _insert_table_data(conn, "profile", dump.get("profile", []))
     _insert_table_data(conn, "profile_version", dump.get("profile_version", []))
     _insert_table_data(conn, "work_permit", dump.get("work_permit", []))
