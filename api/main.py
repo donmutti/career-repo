@@ -1,5 +1,6 @@
 """FastAPI application entry point."""
 
+import asyncio
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -18,6 +19,7 @@ from api.db import init_db
 from api.db.connection import close_db_connection
 from api.db.daos.opportunity.base.opportunity_dao import OpportunityDAO
 from api.routers import opportunity, inbox, profile, agent, get_status
+from api.services.ai import embedding
 from api.routers.profile import work_experience_projects
 from api.routers.profile import resumes as profile_resumes
 from api.routers.profile import work_experiences as profile_work_experiences
@@ -31,6 +33,8 @@ async def lifespan(app: FastAPI):
     init_db()
     opp_dao = OpportunityDAO()
     opp_dao.reset_stuck_sourcing()
+    asyncio.create_task(embedding.warmup())
+    await asyncio.sleep(0)  # yield once so the warmup task starts before the first request arrives
     yield
     close_db_connection()
 

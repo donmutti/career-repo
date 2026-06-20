@@ -4,7 +4,7 @@ from fastapi import APIRouter
 
 from .. import __version__
 from ..db.connection import get_db_connection
-from ..services.ai import runtime
+from ..services.ai import embedding, runtime
 
 router = APIRouter(prefix="/system", tags=["system"])
 
@@ -31,4 +31,5 @@ def get_system_status():
         "database": db_status,
         "profile_exists": has_profile,
         "active_agent_runs": len(runtime.list_active()),
+        "embedding": {"status": embedding.status, "error": embedding.error},
     }
