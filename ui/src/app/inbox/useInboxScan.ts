@@ -3,6 +3,9 @@ import {useMutation, useQuery} from '@tanstack/react-query'
 import {agentRuns as agentRunsApi, inbox as inboxApi} from '@/services/client'
 import {queryClient} from '@/services/queryClient'
 import {queryKeys} from '@/services/queryKeys'
+import {LocalStorageUtils} from '@/shared/utils/LocalStorageUtils'
+
+const LAST_SCANNED_KEY = 'inbox.lastScannedAt'
 
 const TERMINAL_STATUSES = ['completed', 'failed', 'cancelled']
 
@@ -16,6 +19,7 @@ interface AgentRun {
 export function useInboxScan(activeWindow: string) {
   const [scanRunId, setScanRunId] = useState<string | null>(null)
   const [elapsed, setElapsed] = useState(0)
+  const [lastScannedAt, setLastScannedAt] = useState<string | null>(() => LocalStorageUtils.get<string | null>(LAST_SCANNED_KEY, null))
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // On mount, check if a scan is already running on the server
@@ -44,6 +48,11 @@ export function useInboxScan(activeWindow: string) {
 
   useEffect(() => {
     if (runStatus && TERMINAL_STATUSES.includes(runStatus)) {
+      if (runStatus === 'completed') {
+        const ts = new Date().toISOString()
+        LocalStorageUtils.set(LAST_SCANNED_KEY, ts)
+        setLastScannedAt(ts)
+      }
       setScanRunId(null)
       queryClient.invalidateQueries({queryKey: queryKeys.inboxStatus})
       queryClient.invalidateQueries({queryKey: queryKeys.inboxCounts})
@@ -56,7 +65,7 @@ export function useInboxScan(activeWindow: string) {
   const scanning = !!scanRunId
 
   const startMutation = useMutation({
-    mutationFn: () => inboxApi.scan(),
+    mutationFn: () => inboxApi.scan({last_scanned_at: LocalStorageUtils.get<string | null>(LAST_SCANNED_KEY, null) ?? undefined}),
     onSuccess: (data) => {
       const {run_id} = data as { run_id: string }
       setScanRunId(run_id)
@@ -94,6 +103,7 @@ export function useInboxScan(activeWindow: string) {
     scanning,
     elapsed,
     progress,
+    lastScannedAt,
     start: startMutation.mutate,
     cancel: cancelMutation.mutate,
   }

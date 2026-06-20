@@ -28,19 +28,13 @@ export default function InboxPage() {
   const [activeWindow, setActiveWindow] = useState(() => LocalStorageUtils.get('inbox.window', 'today'))
   const [clearDialogOpen, setClearDialogOpen] = useState(false)
 
-  const {data: statusData} = useQuery({
-    queryKey: queryKeys.inboxStatus,
-    queryFn: inboxApi.status,
-  })
-  const lastScannedAt = (statusData as { last_scanned_at: string | null } | undefined)?.last_scanned_at
-
   const {data: countsData} = useQuery({
     queryKey: queryKeys.inboxCounts,
     queryFn: inboxApi.counts,
   })
   const counts = countsData as { all: number; today: number; yesterday: number; last7: number; last30: number; all_pending: number } | undefined
 
-  const {scanning, elapsed, progress, start, cancel} = useInboxScan(activeWindow)
+  const {scanning, elapsed, progress, lastScannedAt, start, cancel} = useInboxScan(activeWindow)
 
   const clearMutation = useMutation({
     mutationFn: inboxApi.clear,

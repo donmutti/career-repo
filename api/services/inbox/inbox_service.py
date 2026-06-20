@@ -18,14 +18,13 @@ class InboxService:
         self._email_dao = InboxEmailDAO()
         self._email_opp_dao = EmailOpportunityDAO()
 
-    def build_scan_query(self) -> str:
+    def build_scan_query(self, last_scanned_at: str | None = None) -> str:
         keywords = get_inbox_scan_keywords()
         keyword_str = " OR ".join(f'"{k}"' for k in keywords)
-        last_scanned = self._email_dao.last_scanned_at()
-        if last_scanned:
+        if last_scanned_at:
             # Rescan from midnight of the last scan day, including the full day of the last scan,
             # so emails that arrived during or just after the previous run are not missed
-            after_dt = datetime.fromisoformat(last_scanned.replace("Z", "+00:00")).replace(hour=0, minute=0, second=0, microsecond=0)
+            after_dt = datetime.fromisoformat(last_scanned_at.replace("Z", "+00:00")).replace(hour=0, minute=0, second=0, microsecond=0)
         else:
             after_dt = datetime.now(timezone.utc) - timedelta(days=get_inbox_scan_days())
         after_epoch = int(after_dt.timestamp())
@@ -37,16 +36,16 @@ class InboxService:
             if run.meta is not None
         ]
 
-    def start_scan(self) -> AgentRun:
+    def start_scan(self, last_scanned_at: str | None = None) -> AgentRun:
         run = runtime.create(AgentName.INBOX_SCAN)
         run.set_meta({"current": 0, "total": 0, "preparing": True})
-        runtime.run(run, self._run_scan(run))
+        runtime.run(run, self._run_scan(run, last_scanned_at))
         return run
 
-    async def _run_scan(self, run: AgentRun) -> None:
+    async def _run_scan(self, run: AgentRun, last_scanned_at: str | None = None) -> None:
         # Probe: fetch all matching IDs
         try:
-            scan_query = self.build_scan_query()
+            scan_query = self.build_scan_query(last_scanned_at)
             logger.info("Starting probe: scan_days=%d query=%r", get_inbox_scan_days(), scan_query)
             probe_result = await runtime.generate(AgentName.INBOX_PREFLIGHT, {"query": scan_query}, timeout=300.0)
             probe = probe_result.output
@@ -61,8 +60,7 @@ class InboxService:
         total = len(new_ids)
 
         batch_size = get_inbox_scan_batch_size()
-        last_scanned_at = self._email_dao.last_scanned_at()
-        run.set_meta({"current": min(batch_size, total), "total": total, "preparing": False, "last_scanned_at": last_scanned_at})
+        run.set_meta({"current": min(batch_size, total), "total": total, "preparing": False})
         logger.info("Probe complete: total=%d new=%d query=%r", len(all_ids), total, scan_query)
 
         if not new_ids:
