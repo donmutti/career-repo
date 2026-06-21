@@ -47,9 +47,7 @@ export function InboxEmailOpportunityRow({item, onExtract, onSkip, onReset}: Ema
           {item.title}{item.location && <span className="text-label-medium"> ({item.location})</span>}
         </span>
         {item.url && (
-          <a href={item.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="shrink-0 text-label-medium hover:text-action">
-            <ExternalLink size={14}/>
-          </a>
+          <a href={item.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="flex items-center gap-1 text-intent-info shrink-0">View <ExternalLink size={12}/></a>
         )}
       </div>
     </div>
