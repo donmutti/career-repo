@@ -2,7 +2,7 @@ import {useNavigate, useOutletContext, useParams} from 'react-router'
 import {useQuery, useQueryClient} from '@tanstack/react-query'
 import {useState} from 'react'
 import {LocalStorageUtils} from '@/shared/utils/LocalStorageUtils'
-import {Mail, MoreVertical} from 'lucide-react'
+import {Mail, MoreVertical, ThumbsDown} from 'lucide-react'
 import {Pane, PaneBody, PaneHeader, PaneResizeHandle} from '@/shared/controls/panes/Panes'
 import {ListView} from '@/shared/controls/views/ListView'
 import {EmptyState} from '@/shared/controls/views/EmptyState'
@@ -83,7 +83,7 @@ export default function InboxListPage() {
       <DropdownButton
         trigger={<IconButton icon={MoreVertical} label="More options"/>}
         items={[
-          {label: 'Decline all pending...', onClick: () => setDeclineConfirmOpen(true)},
+          {label: 'Decline all pending...', icon: <ThumbsDown size={14}/>, onClick: () => setDeclineConfirmOpen(true), danger: true},
         ]}
         align="end"
       />
