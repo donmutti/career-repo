@@ -44,9 +44,16 @@ Career Repo is designed for one person running:
 - [Git](https://git-scm.com/downloads) – version control, needed to clone the repo
 - [uv](https://docs.astral.sh/uv/getting-started/installation/) – Python package manager, needed to install Python dependencies (also auto-downloads Python 3.13+ if needed)
 - [Node.js 20+](https://nodejs.org) – JavaScript runtime, needed to run the UI dev server
-- [Claude Code CLI](https://code.claude.com) – local AI assistant, needed to run AI features (job scoring, cover letter generation, etc.). After install:
-  - authenticate with `claude login`
-  - register the Gmail MCP server with `claude mcp add --transport http gmail https://gmailmcp.googleapis.com/mcp/v1`
+- [Claude Code CLI](https://code.claude.com) – local AI assistant, needed to run AI features (job scoring, cover letter generation, etc.)
+
+After installing Claude Code CLI, authenticate and register the Gmail MCP server:
+
+```bash
+claude login
+claude mcp add --transport http gmail https://gmailmcp.googleapis.com/mcp/v1
+```
+
+> **Note:** Career Repo uses `claude-agent-sdk`, which bundles its own Claude Code CLI binary. However, authentication state (Anthropic credentials, Gmail MCP config) lives in `~/.claude/`. The steps above are required to populate that shared auth state for the bundled binary to pick it up.
 
 **Checkout:**
 
