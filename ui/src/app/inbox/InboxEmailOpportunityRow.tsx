@@ -20,7 +20,7 @@ export function InboxEmailOpportunityRow({item, onExtract, onSkip, onReset}: Ema
 
       {/* Actions column */}
       <div className="flex flex-row items-center justify-center gap-3 py-3 border-r border-frame-lighter bg-panel-lightest shrink-0">
-        <Tooltip content="Save" side="bottom">
+        <Tooltip content="Accept" side="bottom">
           <button
             onClick={() => item.status === 'extracted' ? onReset(item.id) : onExtract(item.id)}
             className={`auxiliary w-8 h-8 ${item.status === 'extracted' ? 'text-white' : 'text-label-medium hover:text-action'}`}
