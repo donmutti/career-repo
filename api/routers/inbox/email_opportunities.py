@@ -48,7 +48,7 @@ async def patch_email_opportunity(eo_id: str, body: PatchEmailOpportunityDto):
     if body.status == "extracted" and not eo.opportunity_id:
         opp_type = OpportunityType(eo.type) if eo.type in OpportunityType._value2member_map_ else OpportunityType.JOB
         email = email_dao.get(eo.inbox_email_id)
-        opened_on = date.fromisoformat(email.received_at[:10]) if email else date.today()
+        opened_on = email.received_at.date() if email else date.today()
         version = OpportunityVersion(
             status=OpportunityStatus.OPENED,
             title=eo.title,
