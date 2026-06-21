@@ -1,4 +1,4 @@
-import {Bookmark, ExternalLink, X} from 'lucide-react'
+import {ExternalLink, ThumbsDown, ThumbsUp} from 'lucide-react'
 import {OPP_TYPE_ICONS} from '@/app/opportunities/OpportunityTypes'
 import {Tooltip} from '@/shared/controls/Tooltip'
 import {InboxEmailOpportunity} from '@/app/inbox/InboxTypes'
@@ -26,7 +26,7 @@ export function InboxEmailOpportunityRow({item, onExtract, onSkip, onReset}: Ema
             className={`auxiliary w-8 h-8 ${item.status === 'extracted' ? 'text-white' : 'text-label-medium hover:text-action'}`}
             style={item.status === 'extracted' ? {backgroundColor: 'var(--color-action)'} : undefined}
           >
-            <Bookmark size={16}/>
+            <ThumbsUp size={16}/>
           </button>
         </Tooltip>
         <Tooltip content="Decline" side="bottom">
@@ -35,7 +35,7 @@ export function InboxEmailOpportunityRow({item, onExtract, onSkip, onReset}: Ema
             className={`auxiliary w-8 h-8 ${item.status === 'skipped' ? 'text-white' : 'text-label-medium hover:text-intent-danger'}`}
             style={item.status === 'skipped' ? {backgroundColor: 'var(--color-intent-danger)'} : undefined}
           >
-            <X size={16}/>
+            <ThumbsDown size={16}/>
           </button>
         </Tooltip>
       </div>
