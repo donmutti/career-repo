@@ -29,10 +29,10 @@ class EmailOpportunityDAO(BaseEntityDAO[EmailOpportunity]):
         ).fetchall()
         return [self._from_row(dict(r)) for r in rows]
 
-    def set_status(self, eo_id: str, status: str, opportunity_id: Optional[str] = None) -> EmailOpportunity:
+    def set_status(self, eo_id: str, status: str, opportunity_id: Optional[str] = None, reason: Optional[str] = None) -> EmailOpportunity:
         self._execute(
-            "update email_opportunity set status = ?, opportunity_id = ? where id = ?",
-            (status, opportunity_id, eo_id),
+            "update email_opportunity set status = ?, opportunity_id = ?, reason = ? where id = ?",
+            (status, opportunity_id, reason, eo_id),
         )
         self._save()
         return self.get(eo_id)
@@ -77,4 +77,5 @@ class EmailOpportunityDAO(BaseEntityDAO[EmailOpportunity]):
             status=row["status"],
             opportunity_id=row.get("opportunity_id"),
             location=row.get("location"),
+            reason=row.get("reason"),
         )

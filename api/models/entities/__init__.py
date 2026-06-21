@@ -1,5 +1,5 @@
 from .base import BaseEntity, EntityVersion, VersionedEntity
-from .inbox import InboxEmail, EmailOpportunity
+from .inbox import InboxEmail, EmailOpportunity, DeclineReason
 from .opportunity import (
     OpportunityStatus, OpportunityType, OpportunityVersion, Opportunity,
     OpportunitySimilarity,
@@ -25,5 +25,5 @@ __all__ = [
     "Profile", "ProfileVersion",
     "OpportunityVersion", "Opportunity", "OpportunitySimilarity",
     "AttachmentType", "Attachment", "Comment", "CommentVersion",
-    "InboxEmail", "EmailOpportunity",
+    "InboxEmail", "EmailOpportunity", "DeclineReason",
 ]

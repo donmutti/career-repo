@@ -6,7 +6,7 @@ from .opportunity import (
     CommentDAO,
     AttachmentDAO,
 )
-from .inbox import InboxEmailDAO, EmailOpportunityDAO
+from .inbox import InboxEmailDAO, EmailOpportunityDAO, DeclineReasonDAO
 from .profile import ProfileDAO, ResumeDAO, WorkExperienceDAO, WorkExperienceProjectDAO
 
 __all__ = [
@@ -17,7 +17,7 @@ __all__ = [
     "OpportunitySimilarityDAO",
     "CommentDAO",
     "AttachmentDAO",
-    "InboxEmailDAO", "EmailOpportunityDAO",
+    "InboxEmailDAO", "EmailOpportunityDAO", "DeclineReasonDAO",
     "ProfileDAO",
     "ResumeDAO",
     "WorkExperienceDAO",

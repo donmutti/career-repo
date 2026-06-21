@@ -11,6 +11,7 @@ from .daos import (
     AttachmentDAO,
     InboxEmailDAO,
     EmailOpportunityDAO,
+    DeclineReasonDAO,
     WorkExperienceDAO,
     WorkExperienceProjectDAO,
 )
@@ -27,7 +28,7 @@ __all__ = [
     "OpportunitySimilarityDAO",
     "CommentDAO",
     "AttachmentDAO",
-    "InboxEmailDAO", "EmailOpportunityDAO",
+    "InboxEmailDAO", "EmailOpportunityDAO", "DeclineReasonDAO",
     "WorkExperienceDAO",
     "WorkExperienceProjectDAO",
 ]

@@ -15,6 +15,7 @@ export const queryKeys = {
   inboxEmailOpportunities: (id: string) => ['inbox', 'email', id, 'opportunities'] as const,
   inboxStatus: ['inbox', 'status'] as const,
   inboxActiveScan: ['inbox', 'scan', 'active'] as const,
+  inboxDeclineReasons: ['inbox', 'decline-reasons'] as const,
   workExperiences: ['work-experiences'] as const,
   workExperience: (id: string) => ['work-experience', id] as const,
   workExperienceProjects: (id: string) => ['work-experience-projects', id] as const,

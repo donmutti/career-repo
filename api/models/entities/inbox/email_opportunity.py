@@ -16,3 +16,4 @@ class EmailOpportunity(BaseEntity):
     location: Optional[str] = None
     status: str  # pending | extracted | skipped
     opportunity_id: Optional[str] = None
+    reason: Optional[str] = None

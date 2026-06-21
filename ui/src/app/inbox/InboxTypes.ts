@@ -8,4 +8,11 @@ export interface InboxEmailOpportunity {
   location?: string | null
   status: string  // pending | extracted | skipped
   opportunity_id?: string | null
+  reason?: string | null
+}
+
+export interface DeclineReason {
+  id: string
+  text: string
+  count: number
 }

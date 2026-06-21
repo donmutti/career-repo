@@ -9,6 +9,7 @@ import {Spinner} from '@/shared/controls/Spinner'
 import {TextEdit} from '@/shared/controls/edits/TextEdit'
 import {ShowMoreView} from '@/shared/controls/views/ShowMoreView'
 import {InboxEmailOpportunityRow} from './InboxEmailOpportunityRow'
+import {ReasonDialog} from './ReasonDialog'
 import {DateLabel} from '@/shared/controls/DateLabel'
 import {OPP_TYPE_SINGULAR} from '@/app/opportunities/OpportunityTypes'
 import {InboxEmailOpportunity} from '@/app/inbox/InboxTypes'
@@ -30,6 +31,7 @@ interface InboxEmailViewProps {
 export function InboxEmailView({emailId}: InboxEmailViewProps) {
   const {flashSidebarButton} = useAppContext()
   const [bodyExpanded, setBodyExpanded] = useState(true)
+  const [pendingSkipId, setPendingSkipId] = useState<string | null>(null)
   const [oppsExpanded, setOppsExpanded] = useState<Record<string, boolean>>({
     job: true, project: true, education: true, networking: true, learning: true
   })
@@ -53,12 +55,15 @@ export function InboxEmailView({emailId}: InboxEmailViewProps) {
   })
 
   const patchOppMutation = useMutation({
-    mutationFn: ({id, status}: { id: string; status: string; hadOpportunity?: boolean }) =>
-      inboxApi.patchEmailOpportunity(id, {status}),
+    mutationFn: ({id, status, reason}: { id: string; status: string; reason?: string | null; hadOpportunity?: boolean }) =>
+      inboxApi.patchEmailOpportunity(id, {status, reason}),
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({queryKey: queryKeys.inboxEmailOpportunities(emailId)})
       queryClient.invalidateQueries({queryKey: queryKeys.inboxSortedCounts})
       queryClient.invalidateQueries({queryKey: queryKeys.inboxCounts})
+      if (variables.status === 'skipped') {
+        queryClient.invalidateQueries({queryKey: queryKeys.inboxDeclineReasons})
+      }
       if (variables.status === 'extracted' || variables.status === 'pending') {
         queryClient.invalidateQueries({queryKey: queryKeys.opportunities})
       }
@@ -161,7 +166,7 @@ export function InboxEmailView({emailId}: InboxEmailViewProps) {
                       key={item.id}
                       item={item}
                       onExtract={(id) => patchOppMutation.mutate({id, status: 'extracted'})}
-                      onSkip={(id) => patchOppMutation.mutate({id, status: 'skipped', hadOpportunity: !!item.opportunity_id})}
+                      onSkip={(id) => setPendingSkipId(id)}
                       onReset={(id) => patchOppMutation.mutate({id, status: 'pending', hadOpportunity: !!item.opportunity_id})}
                     />
                   ))}
@@ -171,6 +176,16 @@ export function InboxEmailView({emailId}: InboxEmailViewProps) {
           </div>
         </div>
       </div>
+      <ReasonDialog
+        open={pendingSkipId !== null}
+        onOpenChange={(open) => { if (!open) setPendingSkipId(null) }}
+        onSubmit={(reason) => {
+          if (!pendingSkipId) return
+          const item = opps.find(o => o.id === pendingSkipId)
+          patchOppMutation.mutate({id: pendingSkipId, status: 'skipped', reason, hadOpportunity: !!item?.opportunity_id})
+          setPendingSkipId(null)
+        }}
+      />
     </div>
   )
 }
