@@ -7,12 +7,11 @@ interface TimeWindowRowProps {
   selected: boolean
   onClick: () => void
   count?: number
-  allSorted?: boolean
-  showDot?: boolean
+  allDecided?: boolean
 }
 
-export function TimeWindowRow({label, icon: Icon, selected, onClick, count, allSorted, showDot}: TimeWindowRowProps) {
-  const hasUnsorted = showDot && count != null && count > 0 && allSorted === false
+export function TimeWindowRow({label, icon: Icon, selected, onClick, count, allDecided}: TimeWindowRowProps) {
+  const hasPending = allDecided === false && (count ?? 0) > 0
 
   return (
     <button
@@ -22,7 +21,7 @@ export function TimeWindowRow({label, icon: Icon, selected, onClick, count, allS
       <Icon size={16} className="shrink-0"/>
       <span className="flex-1 text-base text-label-darker">{label}</span>
       <span className="flex items-center gap-1.5 shrink-0">
-        {hasUnsorted && <span className="w-2 h-2 rounded-full bg-intent-info shrink-0"/>}
+        {hasPending && <span className="w-2 h-2 rounded-full bg-intent-info shrink-0"/>}
         <span className="text-sm text-label-medium w-6 text-right">{formatCount(count ?? 0)}</span>
       </span>
     </button>

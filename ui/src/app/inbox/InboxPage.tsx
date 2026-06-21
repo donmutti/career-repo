@@ -32,7 +32,11 @@ export default function InboxPage() {
     queryKey: queryKeys.inboxCounts,
     queryFn: inboxApi.counts,
   })
-  const counts = countsData as { all: number; today: number; yesterday: number; last7: number; last30: number; all_pending: number } | undefined
+  interface InboxCounts {
+    all: number; today: number; yesterday: number; last7: number; last30: number; all_pending: number
+    all_all_sorted: boolean; today_all_sorted: boolean; yesterday_all_sorted: boolean; last7_all_sorted: boolean; last30_all_sorted: boolean
+  }
+  const counts = countsData as InboxCounts | undefined
 
   const {scanning, elapsed, progress, lastScannedAt, start, cancel} = useInboxScan(activeWindow)
 
@@ -85,7 +89,7 @@ export default function InboxPage() {
         <PaneBody>
           <div className="py-2 px-1">
             {(() => {
-              const navRow = (w: typeof PENDING_WINDOW, count: number | undefined, showDot?: boolean) => (
+              const navRow = (w: typeof PENDING_WINDOW, count: number | undefined, allDecided?: boolean) => (
                 <TimeWindowRow
                   key={w.key}
                   label={w.label}
@@ -93,15 +97,20 @@ export default function InboxPage() {
                   selected={activeWindow === w.key}
                   onClick={() => { setActiveWindow(w.key); LocalStorageUtils.set('inbox.window', w.key); navigate('/inbox') }}
                   count={count}
-                  allSorted={showDot && (count ?? 0) > 0 ? false : undefined}
-                  showDot={showDot}
+                  allDecided={allDecided}
                 />
               )
               return (
                 <>
-                  <ListView items={TIME_WINDOWS} getItemKey={(w) => w.key} renderItem={(w) => navRow(w, counts?.[w.key as keyof typeof counts] as number | undefined)}/>
+                  <ListView items={TIME_WINDOWS} getItemKey={(w) => w.key} renderItem={(w) => {
+                    const countKey = w.key as 'all' | 'today' | 'yesterday' | 'last7' | 'last30'
+                    const decidedKey = `${w.key}_all_sorted` as 'all_all_sorted' | 'today_all_sorted' | 'yesterday_all_sorted' | 'last7_all_sorted' | 'last30_all_sorted'
+                    const count = counts?.[countKey]
+                    const allDecided = counts?.[decidedKey]
+                    return navRow(w, count, (count ?? 0) > 0 ? allDecided : undefined)
+                  }}/>
                   <div className="border-t border-frame-lighter mt-2 pt-2">
-                    <ListView items={[PENDING_WINDOW]} getItemKey={(w) => w.key} renderItem={(w) => navRow(w, counts?.all_pending ?? 0, true)}/>
+                    <ListView items={[PENDING_WINDOW]} getItemKey={(w) => w.key} renderItem={(w) => navRow(w, counts?.all_pending ?? 0, counts?.all_pending ? false : undefined)}/>
                   </div>
                 </>
               )
