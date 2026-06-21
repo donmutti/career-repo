@@ -71,7 +71,8 @@ export default function JobListPage() {
         <PaneHeader
           title="Jobs"
           actions={
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-label-medium">By {JOB_GROUP_BY_OPTIONS[groupByMode].label.toLowerCase()}</span>
               <DropdownButton
                 trigger={<IconButton icon={ArrowDownUp} label="Group by"/>}
                 items={[
