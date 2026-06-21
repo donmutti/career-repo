@@ -276,8 +276,18 @@ EmailOpportunity (immutable entity) — a potential opportunity identified by Cl
 - location: string (optional) — city/region extracted by Claude during scan; "Remote" if remote-only
 - status: string — `pending` | `extracted` | `skipped`
 - opportunity_id: UUID (optional) — set after extraction
+- reason: string (optional) — decline reason text; set when status is set to `skipped`; cleared when reset to `pending`
 
-### 4.9. InboxEmail
+### 4.9. DeclineReason
+
+DeclineReason (mutable entity) — a user-supplied decline reason, tracked with a use count for quick-pick suggestions:
+
+- text: string — reason text; `"Not for me"` for the sentinel row (id `00000000-0000-0000-0000-000000000000`)
+- count: integer — incremented each time this reason is selected; starts at 1
+
+The "Not for me" reason has `text = 'Not for me'` and is seeded in the migration with sentinel id `00000000-0000-0000-0000-000000000000`. It is always shown as the last button in `ReasonDialog`, regardless of count. Its count increments normally. The DAO targets it by id (`NOT_FOR_ME_ID` constant) rather than by text, so the display text can be changed centrally in the migration seed row.
+
+### 4.10. InboxEmail
 
 InboxEmail (immutable entity) — an email surfaced from the user's inbox:
 
@@ -594,6 +604,14 @@ Versioned entities: two-table pattern — `<entity>` holds identity table (`id`,
 - location TEXT
 - status TEXT not null default 'pending'
 - opportunity_id TEXT (references `opportunity`, on delete set null)
+- reason TEXT — decline reason; set on skip, cleared on reset to pending
+
+`decline_reason` — mutable; user-supplied decline reason with use count:
+
+- id TEXT primary key
+- created_at TEXT not null
+- text TEXT not null unique — display text; "Not for me" for the sentinel row
+- count INTEGER not null default 1
 
 `opportunity_embedding` — stores a packed float32 vector for each sourced opportunity; used for similarity detection:
 
@@ -919,10 +937,17 @@ EmailOpportunityDAO (BaseEntityDAO[EmailOpportunity]):
 - `create(inbox_email_id, title, type, url?, organization_name?, location?): EmailOpportunity`
 - `get(eo_id): EmailOpportunity | None`
 - `list_by_email(inbox_email_id): list[EmailOpportunity]`
-- `set_status(eo_id, status, opportunity_id?): EmailOpportunity`
+- `set_status(eo_id, status, opportunity_id?, reason?): EmailOpportunity` — updates status, opportunity_id, and reason in one write
 - `sorted_counts(): dict` — returns `{email_id: [sorted, total]}` for all emails
 - `decline_pending_for_emails(inbox_email_ids): int` — sets all `pending` email opportunities to `skipped` for the given emails; returns count of updated rows
 - `delete(eo_id): None`
+
+DeclineReasonDAO (BaseEntityDAO[DeclineReason]):
+
+- `list_by_count(): list[DeclineReason]` — all reasons ordered by count descending; excludes the "Not for me" reason (text is null)
+- `get(reason_id): DeclineReason | None`
+- `record(text: str | None): DeclineReason` — increments count if reason with this text exists; inserts with count=1 otherwise; `text=None` targets the "Not for me" sentinel by id (`NOT_FOR_ME_ID`)
+- `delete(reason_id): None` — not implemented; raises `NotImplementedError`
 
 OpportunityEmbeddingDAO (plain class, not BaseEntityDAO):
 
@@ -1053,8 +1078,9 @@ All endpoints prefixed with `/api`. Source lives in `api/routers/`.
 - `DELETE /inbox/{id}` — deletes email and its extracted opportunities; 204
 - `POST /inbox/{id}/extract` — extracts opportunities from email via Claude; returns created opportunities
 - `GET /inbox/{id}/opportunities` — lists EmailOpportunity records for an email
-- `PATCH /inbox/opportunities/{id}` — updates EmailOpportunity status and optional opportunity_id
+- `PATCH /inbox/opportunities/{id}` — updates EmailOpportunity status, optional opportunity_id, and optional reason; on skip with reason, records the reason via `DeclineReasonDAO.record()`; on reset to pending, clears reason
 - `POST /inbox/opportunities/decline-pending` — sets all pending email opportunities to skipped for the given email IDs; body: `{email_ids: string[]}`; returns `{count: number}`
+- `GET /inbox/decline-reasons` — returns all `DeclineReason` records ordered by count descending; declared before `GET /inbox/{id}` to avoid FastAPI path conflict
 - `DELETE /inbox/clear` — deletes all inbox scan results (emails + extracted opportunities); 204
 
 #### 7.4.8. Agent runs
@@ -1388,6 +1414,19 @@ ValueDialog — generic modal for collecting a single value:
 - onSubmit: () => void
 - submitLabel?: string
 - isSubmitting?: boolean
+
+ReasonDialog — modal for collecting a mandatory decline reason; no submit button — user either types and hits Enter, or clicks a frequent reason button:
+
+- open: boolean
+- onOpenChange: (v: boolean) => void
+- onSubmit: (reason: string | null) => void — called with the reason text, or `null` for "Not for me"
+
+Behaviour:
+- Single-line text input, autofocused on open; Enter submits typed reason (ignored if empty)
+- Up to 5 frequent reason buttons rendered from `GET /inbox/decline-reasons` (by count desc), left-aligned, natural width
+- "Not for me" button always rendered last, regardless of count; clicking it submits with `null`
+- Clicking any frequent reason button submits immediately and closes the dialog
+- State (typed value) is cleared on close
 
 FilePreviewDialog — previews a file with download and open actions:
 
@@ -1880,7 +1919,7 @@ Create opportunity:
 Source opportunity:
 
 - User opens an opportunity and clicks "Score" (or "Re-score").
-- System calls `POST /opportunities/{id}/source`; Claude fetches the job page via `WebFetch`, enriches fields, and scores against the user profile and work experience.
+- System calls `POST /opportunities/{id}/source`; Claude first mines the `description` field for details (compensation, location, contract type, etc.), then fetches the opportunity URL via `WebFetch`. If the URL is a LinkedIn job page, Claude follows the Apply button to the actual company JD page. Claude enriches all fields and scores against the user profile and work experience. The `description` field may be completely rewritten with the full JD from the fetched page.
 - System saves the updated version; `Flow` status, score badge, and fields update in the detail view.
 - Elapsed timer shown while sourcing; user can cancel.
 
@@ -1910,10 +1949,11 @@ Scan inbox:
 Triage email opportunities:
 
 - User opens an email; extracted `EmailOpportunity` items are shown grouped by type.
-- User clicks "Accept" (ThumbsUp) to save; `EmailOpportunity` status set to `extracted`; an associated `Opportunity` is created with `opened_on` set to the email's `received_at` date, then sent for sourcing.
+- User clicks "Accept" (ThumbsUp) to save; `EmailOpportunity` status set to `extracted`; an associated `Opportunity` is created with `opened_on` set to the email's `received_at` date and `description` set to the full email body (formatted as `From: …\nSubject: …\n\n{body}`), then sent for sourcing.
 - User clicks "Accept" again to un-save; `EmailOpportunity` status set to `pending`, the associated `Opportunity` is deleted and any active agent run on it is canceled.
-- User clicks "Decline" (ThumbsDown) to skip; `EmailOpportunity` status set to `skipped`; if associated `Opportunity` existed, it is deleted and any active agent run on it is canceled.
-- User clicks "Decline" again to un-skip; `EmailOpportunity` status set to `pending`.
+- User clicks "Decline" (ThumbsDown); `ReasonDialog` opens. User provides a reason (typed or quick-pick) or clicks "Not for me". On submit: `EmailOpportunity` status set to `skipped`, `reason` field saved; `DeclineReasonDAO.record()` called with the reason text (or `null` for "Not for me"); if associated `Opportunity` existed, it is deleted and any active agent run on it is canceled.
+- User clicks "Decline" again to un-decline; `EmailOpportunity` status set to `pending`, `reason` cleared; no dialog shown.
+- Declined `InboxEmailOpportunityRow` shows the reason text below the title (or "Not for me" for null reason).
 - When all email opportunities for an email are triaged, the attention dot clears for that email.
 - When all emails are triaged for the selected filter group, the attention dot clears for that filter group.
 

@@ -5,10 +5,11 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 
-from ...db import EmailOpportunityDAO, InboxEmailDAO
+from ...db import EmailOpportunityDAO, InboxEmailDAO, DeclineReasonDAO
+from ...db.daos.inbox.decline_reason_dao import NOT_FOR_ME_ID
 from ...db.daos.opportunity.base.opportunity_dao import OpportunityDAO
 from ...db.daos.opportunity.meta.comment_dao import CommentDAO
-from ...models.entities import EmailOpportunity
+from ...models.entities import EmailOpportunity, DeclineReason
 from ...models.entities.opportunity.meta.comment import CommentVersion
 from ...models.entities.opportunity.base.opportunity import (
     OpportunityVersion, OpportunityType, OpportunityStatus,
@@ -23,6 +24,13 @@ email_dao = InboxEmailDAO()
 opportunity_dao = OpportunityDAO()
 comment_dao = CommentDAO()
 opp_service = OpportunityService()
+decline_reason_dao = DeclineReasonDAO()
+
+
+@router.get("/decline-reasons", response_model=list[DeclineReason])
+def list_decline_reasons():
+    """Return user-defined decline reasons ordered by count descending."""
+    return decline_reason_dao.list_by_count()
 
 
 @router.get("/{email_id}/opportunities", response_model=list[EmailOpportunity])
@@ -34,6 +42,7 @@ def list_email_opportunities(email_id: str):
 class PatchEmailOpportunityDto(BaseModel):
     status: str  # extracted | skipped | pending
     opportunity_id: Optional[str] = None
+    reason: Optional[str] = None
 
 
 @router.patch("/opportunities/{eo_id}", response_model=EmailOpportunity)
@@ -49,11 +58,13 @@ async def patch_email_opportunity(eo_id: str, body: PatchEmailOpportunityDto):
         opp_type = OpportunityType(eo.type) if eo.type in OpportunityType._value2member_map_ else OpportunityType.JOB
         email = email_dao.get(eo.inbox_email_id)
         opened_on = email.received_at.date() if email else date.today()
+        description = f"From: {email.from_address}\nSubject: {email.subject}\n\n{email.body}" if email else None
         version = OpportunityVersion(
             status=OpportunityStatus.OPENED,
             title=eo.title,
             opened_on=opened_on,
             organization_name=eo.organization_name,
+            description=description,
         )
         opportunity_id = opportunity_dao.create(eo.url or None, opp_type, version)
         comment_dao.create(opportunity_id, CommentVersion(body=f"Created from email /inbox/{eo.inbox_email_id}"))
@@ -66,7 +77,13 @@ async def patch_email_opportunity(eo_id: str, body: PatchEmailOpportunityDto):
         opportunity_dao.delete(eo.opportunity_id)
         opportunity_id = None
 
-    return email_opp_dao.set_status(eo_id, body.status, opportunity_id)
+    reason = None
+    if body.status == "skipped":
+        not_for_me = decline_reason_dao.get(NOT_FOR_ME_ID)
+        reason = body.reason if body.reason else (not_for_me.text if not_for_me else "Not for me")
+        decline_reason_dao.record(body.reason if body.reason else None)
+
+    return email_opp_dao.set_status(eo_id, body.status, opportunity_id, reason=reason)
 
 
 class DeclinePendingDto(BaseModel):
