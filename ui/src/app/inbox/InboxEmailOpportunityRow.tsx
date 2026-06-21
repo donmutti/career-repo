@@ -1,4 +1,4 @@
-import {ExternalLink, ThumbsDown, ThumbsUp} from 'lucide-react'
+import {ThumbsDown, ThumbsUp} from 'lucide-react'
 import {OPP_TYPE_ICONS} from '@/app/opportunities/OpportunityTypes'
 import {Tooltip} from '@/shared/controls/Tooltip'
 import {InboxEmailOpportunity} from '@/app/inbox/InboxTypes'
@@ -43,16 +43,16 @@ export function InboxEmailOpportunityRow({item, onExtract, onSkip, onReset}: Ema
       {/* Body column */}
       <div className={`flex items-center gap-2 text-base px-6 overflow-hidden ${sorted ? 'opacity-50' : ''}`}>
         {Icon && <Icon size={14} className="shrink-0 text-label-medium"/>}
-        <div className="flex flex-col flex-1 min-w-0">
-          <span className={`truncate ${declined ? 'line-through text-label-dark' : sorted ? 'text-label-dark' : 'text-label-darker'}`}>
-            {item.title}{item.location && <span className="text-label-medium"> ({item.location})</span>}
-          </span>
-          {declined && item.reason && (
-            <span className="text-sm text-label-medium truncate">{item.reason}</span>
-          )}
-        </div>
-        {item.url && (
-          <a href={item.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="flex items-center gap-1 text-intent-info shrink-0">View <ExternalLink size={12}/></a>
+        <span className={`flex-1 truncate ${declined ? 'line-through text-label-dark' : sorted ? 'text-label-dark' : 'text-label-darker'}`}>
+          {item.url ? (
+            <a href={item.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="hover:underline">
+              {item.title}
+            </a>
+          ) : item.title}
+          {item.location && <span className="text-label-medium"> ({item.location})</span>}
+        </span>
+        {declined && item.reason && (
+          <span className="text-sm text-label-dark truncate shrink-0 max-w-[40%]">{item.reason}</span>
         )}
       </div>
     </div>
