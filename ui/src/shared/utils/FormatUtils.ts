@@ -79,6 +79,12 @@ export function dateBucketKey(value: string): string {
 export function formatDateBucketKey(key: string): string {
   const d = parseUtc(key)
   const now = new Date()
+  const isToday = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate()
+  if (isToday) return 'Today'
+  const yesterday = new Date(now)
+  yesterday.setDate(now.getDate() - 1)
+  const isYesterday = d.getFullYear() === yesterday.getFullYear() && d.getMonth() === yesterday.getMonth() && d.getDate() === yesterday.getDate()
+  if (isYesterday) return 'Yesterday'
   const isThisMonth = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
   if (isThisMonth) return d.toLocaleDateString('en-US', {month: 'short', day: 'numeric'})
   return d.toLocaleDateString('en-US', {month: 'short', year: 'numeric'})
