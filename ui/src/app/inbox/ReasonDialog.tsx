@@ -71,7 +71,7 @@ export function ReasonDialog({open, onOpenChange, onSubmit}: ReasonDialogProps) 
         )}
         <div className="flex justify-between items-center mt-6 py-1">
           <button className="secondary" onClick={() => submit(null)}>
-            Just not for me
+            Not for me
           </button>
           <div className="flex gap-2">
             <Dialog.Close asChild>
