@@ -172,7 +172,7 @@ export const JOB_GROUP_BY_OPTIONS: Record<JobGroupByMode, JobGroupByOption> = {
   date: {
     label: 'Date',
     icon: CalendarDays,
-    groupBy: (item) => dateBucketKey(item.active_version.opened_on ?? item.created_at.slice(0, 10)),
+    groupBy: (item) => dateBucketKey(item.created_at.slice(0, 10)),
     groupSortKey: (key) => -Number(key.replaceAll('-', '')),
     groupLabel: formatDateBucketKey,
     hideEmptyGroups: true,

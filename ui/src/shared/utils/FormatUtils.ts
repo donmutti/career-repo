@@ -71,8 +71,9 @@ export function pluralize(count: number, singular: string, plural: string): stri
 export function dateBucketKey(value: string): string {
   const d = parseUtc(value)
   const now = new Date()
+  // Compare using local date components to avoid UTC offset issues
   const isThisMonth = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
-  if (isThisMonth) return value.slice(0, 10)
+  if (isThisMonth) return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
 }
 
