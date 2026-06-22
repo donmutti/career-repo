@@ -6,7 +6,7 @@ import {queryKeys} from '@/services/queryKeys'
 import {inbox as inboxApi} from '@/services/client'
 import {DeclineReason} from '@/app/inbox/InboxTypes'
 
-const MAX_FREQUENT = 5
+const MAX_FREQUENT = 20
 
 interface ReasonDialogProps {
   open: boolean
@@ -61,9 +61,9 @@ export function ReasonDialog({open, onOpenChange, onSubmit}: ReasonDialogProps) 
           />
         </div>
         {frequent.length > 0 && (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 overflow-y-auto max-h-48">
             {frequent.map(r => (
-              <button key={r.id} className="secondary w-full" onClick={() => submit(r.text)}>
+              <button key={r.id} className="secondary min-h-8 w-full" onClick={() => submit(r.text)}>
                 {r.text}
               </button>
             ))}
