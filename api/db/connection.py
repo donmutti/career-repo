@@ -82,6 +82,7 @@ def _hydrate_from_dump(conn: sqlite3.Connection, dump_path: Path):
 
 def _insert_table_data(conn: sqlite3.Connection, table: str, rows: list):
     """Insert rows into a table."""
+    import struct
     if not rows:
         return
 
@@ -91,12 +92,18 @@ def _insert_table_data(conn: sqlite3.Connection, table: str, rows: list):
 
     sql = f"INSERT INTO {table} ({columns}) VALUES ({placeholders})"
     for row in rows:
-        values = tuple(row.values())
+        d = dict(row)
+        # Deserialize float list embeddings back to BLOB
+        if table == "opportunity_embedding" and isinstance(d.get("embedding"), list):
+            v = d["embedding"]
+            d["embedding"] = struct.pack(f"{len(v)}f", *v)
+        values = tuple(d.values())
         conn.execute(sql, values)
 
 
 def dump_db():
     """Export entire database to JSON dump file."""
+    import struct
     dump_path = ROOT / get_dump_path()
 
     conn = sqlite3.connect(str(ROOT / get_db_path()), timeout=10)
@@ -114,7 +121,15 @@ def dump_db():
         cursor.execute(f"SELECT * FROM {table}")
         columns = [description[0] for description in cursor.description]
         rows = cursor.fetchall()
-        dump[table] = [dict(zip(columns, row)) for row in rows]
+        table_rows = []
+        for row in rows:
+            d = dict(zip(columns, row))
+            # Serialize BLOB embeddings as float lists for JSON portability
+            if table == "opportunity_embedding" and isinstance(d.get("embedding"), bytes):
+                b = d["embedding"]
+                d["embedding"] = list(struct.unpack(f"{len(b) // 4}f", b))
+            table_rows.append(d)
+        dump[table] = table_rows
 
     # Write atomically via temp file
     temp_path = dump_path.with_suffix(".tmp")
