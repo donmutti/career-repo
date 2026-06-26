@@ -369,4 +369,6 @@ def download_attachment(attachment_id: str):
     full_path = files.artifact_root / attachment.file_path
     if not full_path.exists():
         raise HTTPException(status_code=404, detail=f"Attachment file not found at {attachment.file_path}")
-    return FileResponse(path=full_path, filename=full_path.name, media_type=attachment.file_type)
+    suffix = full_path.suffix
+    filename = f"{attachment.title}{suffix}" if attachment.title else full_path.name
+    return FileResponse(path=full_path, filename=filename, media_type=attachment.file_type)
