@@ -839,7 +839,7 @@ Raw `sqlite3`, no ORM. Connection opened once at startup with `PRAGMA foreign_ke
 Source lives in `api/db/`.
 
 `init_db()` — called at startup: runs migrations first, then hydrates from `data.json` if available (hydration drops any `schema_migration` rows from the dump since migration history is produced correctly by the migration runner).
-`dump_db()` — called after every mutation: serializes the full DB to `data.json` atomically via temp file + `os.replace()`.
+`dump_db()` — called after every mutation: serializes the full DB to `data.json` atomically via temp file + `os.replace()`. BLOB embeddings in `opportunity_embedding` are serialized as JSON float arrays `[f1, f2, ...]` and restored as packed float32 BLOBs on hydration.
 
 #### 7.2.1. Base DAOs
 
@@ -1059,7 +1059,7 @@ All endpoints prefixed with `/api`. Source lives in `api/routers/`.
 - `DELETE /opportunities/{id}/similar/{neighbor_id}` — dismisses a near-duplicate candidate (sets dismissed_at); 404 if either opportunity not found; 204
 - `PATCH /opportunities/{id}/url` — updates the URL of an opportunity; body: `{url: string}`; 404 if not found; returns updated Opportunity
 - `POST /opportunities/{id}/absorb/{neighbor_id}` — merges neighbor into this opportunity, relinks comments, hard-deletes neighbor, deletes similarity row; 404 if either not found; 409 if pair is already dismissed; 204
-- `GET /attachments/{id}/download` — downloads attachment file
+- `GET /attachments/{id}/download` — downloads attachment file; `Content-Disposition` filename is `{attachment.title}.{ext}` if title is set, otherwise the physical filename
 
 #### 7.4.6. Comments
 
