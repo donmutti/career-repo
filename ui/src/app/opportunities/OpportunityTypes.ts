@@ -2,26 +2,59 @@ import {ReactNode} from 'react'
 import {Archive, BookOpen, BriefcaseBusiness, Building2, CalendarDays, CheckCircle, Coins, Folder, GraduationCap, Hash, Inbox, LucideIcon, Play, Signpost, SquareUserRound, Star, Users} from 'lucide-react'
 import {dateBucketKey, formatDateBucketKey} from '@/shared/utils/FormatUtils'
 
+export type OpportunityType = 'job' | 'project' | 'education' | 'networking' | 'learning'
+export type OpportunityStatus = 'opened' | 'shortlisted' | 'started' | 'completed' | 'closed'
+export type JobContractType = 'permanent' | 'fixed_term' | 'contractor'
+export type JobWorkMode = 'onsite' | 'remote' | 'hybrid'
+export type JobPayPeriod = 'hourly' | 'daily' | 'monthly' | 'annual' | 'milestone'
+export type ProjectType = 'product' | 'service' | 'feature' | 'milestone' | 'community' | 'event' | 'other'
+export type EducationType = 'degree' | 'certification' | 'course' | 'workshop' | 'other'
+export type EducationLevel = 'bachelor' | 'master' | 'phd' | 'professional' | 'associate' | 'other'
+export type NetworkingType = 'meet' | 'attend' | 'host'
+export type LearningType = 'book' | 'article' | 'media' | 'repository' | 'study' | 'other'
+
 export interface OpportunityVersion {
-  status: string
-  title?: string
-  description?: string
-  score?: number
-  score_explanation?: string
-  organization_name?: string
-  job_role?: string
-  job_pay_currency?: string
-  job_pay_min?: number
-  job_pay_max?: number
-  job_pay_period?: string
-  opened_on?: string
+  organization_name?: string | null
+  parent_id?: string | null
+  status: OpportunityStatus
+  title?: string | null
+  description?: string | null
+  location?: string | null
+  score?: number | null
+  score_explanation?: string | null
+  opened_on: string
+  started_on?: string | null
+  completed_on?: string | null
+  closed_on?: string | null
+  archive_reason?: string | null
+
+  job_role?: string | null
+  job_level?: string | null
+  job_contract_type?: JobContractType | null
+  job_work_mode?: JobWorkMode | null
+  job_pay_period?: JobPayPeriod | null
+  job_pay_currency?: string | null
+  job_pay_min?: number | null
+  job_pay_max?: number | null
+
+  project_type?: ProjectType | null
+
+  education_type?: EducationType | null
+  education_level?: EducationLevel | null
+
+  networking_type?: NetworkingType | null
+  networking_is_online?: boolean | null
+  networking_contact_info?: string | null
+
+  learning_type?: LearningType | null
+  learning_duration?: string | null
 }
 
 export interface Opportunity {
   id: string
-  type: string
-  url: string
-  avatar_url?: string
+  type: OpportunityType
+  url?: string | null
+  avatar_url?: string | null
   created_at: string
   sourcing_started_at?: string | null
   sourcing_completed_at?: string | null
@@ -32,7 +65,7 @@ export interface Opportunity {
 export interface CommentVersion {
   body: string
   active_from: string
-  active_to?: string
+  active_to?: string | null
 }
 
 export interface Comment {
@@ -53,12 +86,15 @@ export interface OpportunitySimilarity {
   avatar_url?: string | null
 }
 
+export type AttachmentType = 'cv' | 'motivation' | 'study' | 'portfolio' | 'other'
+
 export interface Attachment {
   id: string
-  type: string
-  title?: string
-  file_type: string
+  opportunity_id: string
+  type: AttachmentType
+  title?: string | null
   file_path: string
+  file_type: string
 }
 
 export const STATUS_LABELS: Record<string, string> = {

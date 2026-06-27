@@ -1,6 +1,6 @@
 import {useEffect, useRef, useState} from 'react'
 import {useNavigate} from 'react-router'
-import {ExternalLink, MapPin, Pencil, Plus, RefreshCw, X} from 'lucide-react'
+import {Briefcase, Coins, ExternalLink, MapPin, Pencil, Plus, RefreshCw, X} from 'lucide-react'
 import {Spinner} from '@/shared/controls/Spinner'
 import {Flow} from '@/shared/controls/Flow'
 import {OpportunityMenu} from '@/app/opportunities/OpportunityMenu'
@@ -20,6 +20,7 @@ import {SimilarOpportunityRow} from '@/app/opportunities/SimilarOpportunityRow'
 import {MergeIntoDialog} from '@/app/opportunities/MergeIntoDialog'
 import {ReasonDialog} from '@/app/inbox/ReasonDialog'
 import {CompensationDialog} from './CompensationDialog'
+import {WorkModeDialog, WORK_MODE_LABELS} from './WorkModeDialog'
 import {ScoreBadge} from '@/shared/controls/buttons/ScoreBadge'
 import {Attachment, Comment, OpportunitySimilarity, STATUS_GROUPS} from '@/app/opportunities/OpportunityTypes'
 import {useOpportunities} from '@/app/opportunities/useOpportunities'
@@ -46,6 +47,7 @@ export function JobView({opportunityId}: JobViewProps) {
   const [archiveReasonOpen, setArchiveReasonOpen] = useState(false)
   const [locationDialogOpen, setLocationDialogOpen] = useState(false)
   const [locationInput, setLocationInput] = useState('')
+  const [workModeDialogOpen, setWorkModeDialogOpen] = useState(false)
 
   const {
     opportunity,
@@ -222,6 +224,7 @@ export function JobView({opportunityId}: JobViewProps) {
               onSetUrl={() => { setUrlInput(opportunity.url ?? ''); setSetUrlDialogOpen(true) }}
               onClearUrl={() => setClearUrlDialogOpen(true)}
               onSetLocation={() => { setLocationInput(activeVersion.location ?? ''); setLocationDialogOpen(true) }}
+              onSetWorkMode={() => setWorkModeDialogOpen(true)}
               onSetCompensation={() => setCompensationDialogOpen(true)}
               onMergeInto={() => setMergeIntoDialogOpen(true)}
               onDelete={() => setDeleteDialogOpen(true)}
@@ -230,17 +233,27 @@ export function JobView({opportunityId}: JobViewProps) {
         </div>
 
         <div className="flex items-center justify-between px-6 pt-1 pb-5 border-b border-frame-lighter">
+          <div className="flex items-center gap-1">
+            <button
+              className={`flex items-center gap-1 p-2 one-liner rounded hoverable hoverable-text ${activeVersion.location ? `font-medium ${isChanging ? 'text-label-medium' : ''}` : 'text-label-medium'}`}
+              onClick={() => { setLocationInput(activeVersion.location ?? ''); setLocationDialogOpen(true) }}
+            >
+              <MapPin size={13} className="shrink-0"/>
+              {activeVersion.location || 'Location'}
+            </button>
+            <button
+              className={`flex items-center gap-1 p-2 one-liner rounded hoverable hoverable-text ${activeVersion.job_work_mode ? `font-medium ${isChanging ? 'text-label-medium' : ''}` : 'text-label-medium'}`}
+              onClick={() => setWorkModeDialogOpen(true)}
+            >
+              <Briefcase size={13} className="shrink-0"/>
+              {activeVersion.job_work_mode ? WORK_MODE_LABELS[activeVersion.job_work_mode] : 'Work mode'}
+            </button>
+          </div>
           <button
-            className={`flex items-center gap-1 p-2 one-liner rounded hoverable hoverable-text ${activeVersion.location ? `font-medium ${isChanging ? 'text-label-medium' : ''}` : 'text-label-medium'}`}
-            onClick={() => { setLocationInput(activeVersion.location ?? ''); setLocationDialogOpen(true) }}
-          >
-            <MapPin size={13} className="shrink-0"/>
-            {activeVersion.location ?? 'Location'}
-          </button>
-          <button
-            className={`p-2 w-fit rounded hoverable hoverable-text ${pay ? `font-medium ${isChanging ? 'text-label-medium' : ''}` : 'text-label-medium'}`}
+            className={`flex items-center gap-1 p-2 w-fit rounded hoverable hoverable-text ${pay ? `font-medium ${isChanging ? 'text-label-medium' : ''}` : 'text-label-medium'}`}
             onClick={() => setCompensationDialogOpen(true)}
           >
+            <Coins size={13} className="shrink-0"/>
             {pay ?? 'Compensation'}
           </button>
         </div>
@@ -411,6 +424,13 @@ export function JobView({opportunityId}: JobViewProps) {
           />
         </div>
       </ValueDialog>
+
+      <WorkModeDialog
+        open={workModeDialogOpen}
+        onOpenChange={setWorkModeDialogOpen}
+        value={activeVersion.job_work_mode}
+        onSubmit={(v) => { patch({job_work_mode: v}); setWorkModeDialogOpen(false) }}
+      />
 
       {/* Merge into dialog */}
       <MergeIntoDialog

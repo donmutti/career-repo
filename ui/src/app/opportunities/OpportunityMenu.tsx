@@ -1,4 +1,4 @@
-import {Coins, Link, MapPin, Merge, MoreVertical, Paperclip, RefreshCw, Trash2, Unlink} from 'lucide-react'
+import {Building, Coins, Link, MapPin, Merge, MoreVertical, Paperclip, RefreshCw, Trash2, Unlink} from 'lucide-react'
 import {Spinner} from '@/shared/controls/Spinner'
 import {DropdownButton} from '@/shared/controls/buttons/DropdownButton'
 import {IconButton} from '@/shared/controls/buttons/IconButton'
@@ -18,6 +18,7 @@ interface OpportunityMenuProps {
   onSetUrl: () => void
   onClearUrl: () => void
   onSetLocation: () => void
+  onSetWorkMode: () => void
   onSetCompensation: () => void
   onMergeInto: () => void
   onDelete: () => void
@@ -27,7 +28,7 @@ export function OpportunityMenu({
   opportunity,
   isChanging,
   isSourcing, isGeneratingCoverLetter,
-  onSource, onGenerateCoverLetter, onSetUrl, onClearUrl, onSetLocation, onSetCompensation, onMergeInto, onDelete,
+  onSource, onGenerateCoverLetter, onSetUrl, onClearUrl, onSetLocation, onSetWorkMode, onSetCompensation, onMergeInto, onDelete,
 }: OpportunityMenuProps) {
   const isJob = opportunity.type === 'job'
 
@@ -43,6 +44,7 @@ export function OpportunityMenu({
     {label: 'Set URL…', icon: <Link size={14}/>, onClick: onSetUrl, disabled: isChanging},
     ...(opportunity.url ? [{label: 'Clear URL', icon: <Unlink size={14}/>, onClick: onClearUrl, disabled: isChanging}] : []),
     {label: 'Set location…', icon: <MapPin size={14}/>, onClick: onSetLocation, disabled: isChanging},
+    ...(isJob ? [{label: 'Set work mode…', icon: <Building size={14}/>, onClick: onSetWorkMode, disabled: isChanging}] : []),
     {label: 'Set compensation…', icon: <Coins size={14}/>, onClick: onSetCompensation, disabled: isChanging},
     {divider: true, label: '', onClick: () => {}},
     {label: 'Merge into…', icon: <Merge size={14}/>, onClick: onMergeInto, disabled: isChanging},

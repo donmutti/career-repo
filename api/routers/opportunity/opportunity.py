@@ -57,7 +57,9 @@ def _parse_version_fields(data: dict) -> dict:
     date_fields = {"opened_on", "started_on", "completed_on", "closed_on"}
     result = {}
     for k, v in data.items():
-        if k in enum_fields:
+        if v is None:
+            result[k] = None
+        elif k in enum_fields:
             try:
                 result[k] = enum_fields[k](v)
             except ValueError:
@@ -124,7 +126,7 @@ def update_opportunity(opportunity_id: str, request: UpdateOpportunityRequestDto
     opportunity = opp_dao.get(opportunity_id)
     if not opportunity:
         raise HTTPException(status_code=404, detail="Opportunity not found")
-    updates = request.model_dump(exclude_none=True)
+    updates = {k: v for k, v in request.model_dump().items() if k in request.model_fields_set}
     if not updates:
         return opportunity
     typed = _parse_version_fields(updates)
