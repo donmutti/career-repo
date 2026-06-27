@@ -1,4 +1,4 @@
-import {Suspense, useCallback, useRef, useState} from 'react'
+import {Suspense, useCallback, useEffect, useRef, useState} from 'react'
 import {ToastContainer} from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 import {Navigate, Outlet, ScrollRestoration, useLocation} from 'react-router'
@@ -12,6 +12,10 @@ import {ActionIntent} from '@/shared/types'
 import {system} from '@/services/client'
 import {queryKeys} from '@/services/queryKeys'
 import {Spinner} from '@/shared/controls/Spinner'
+import {LocalStorageUtils} from '@/shared/utils/LocalStorageUtils'
+import {toastInfo} from '@/shared/utils/ToastUtils'
+
+const LAST_SEEN_VERSION_KEY = 'app.lastSeenVersion'
 
 function FullScreenSpinner() {
   return (
@@ -27,6 +31,15 @@ function AppShell() {
     queryKey: queryKeys.systemStatus,
     queryFn: system.status,
   })
+
+  useEffect(() => {
+    if (!status?.version) return
+    const prev = LocalStorageUtils.get<string | null>(LAST_SEEN_VERSION_KEY, null)
+    if (prev && prev !== status.version) {
+      toastInfo(`Upgraded to ${status.version} successfully`)
+    }
+    LocalStorageUtils.set(LAST_SEEN_VERSION_KEY, status.version)
+  }, [status?.version])
 
   const [sidebarFlashingButton, setSidebarFlashingButton] = useState<SidebarFlashingButton | null>(null)
   const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)

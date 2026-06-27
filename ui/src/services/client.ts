@@ -41,8 +41,17 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 // System
+export interface SystemStatus {
+  profile_exists: boolean
+  version: string
+  latest_version: string | null
+  db_ok?: boolean
+  active_agent_runs: number
+}
+
 export const system = {
-  status: () => apiFetch<{ profile_exists: boolean; version: string; db_ok: boolean; active_agent_runs: number }>('/system/status'),
+  status: () => apiFetch<SystemStatus>('/system/status'),
+  upgradeUrl: () => '/api/system/upgrade',
 }
 
 // Profile

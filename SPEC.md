@@ -1016,7 +1016,7 @@ All endpoints prefixed with `/api`. Source lives in `api/routers/`.
 
 #### 7.4.1. System
 
-- `GET /system/status` — returns `status`, `version`, `database`, `profile_exists`, `active_agent_runs`, `embedding` (`{status, error}`)
+- `GET /system/status` — returns `status`, `version`, `latest_version`, `database`, `profile_exists`, `active_agent_runs`, `embedding` (`{status, error}`). `version` is `api.__version__` (derived from `git describe --tags --abbrev=0` at import time); `latest_version` is a 5-minute in-process cache of the highest semver-sorted tag from `github.com/donmutti/career-repo`, refreshed in a background thread on cache miss (`api/services/github_release.py`).
 
 #### 7.4.2. Profile
 
@@ -1112,6 +1112,16 @@ All endpoints mounted at `/settings`. Writes persist to `config.yml` via the sha
 - `POST /settings/db/purge` — no body. Deletes every `*_version` row where `active_to IS NOT NULL`, plus dependent rows that would otherwise violate foreign keys (currently `work_permit` rows referencing historical `profile_version` rows). Returns `{deleted: int, size_bytes: int, active_version_count: int, historical_version_count: int}` where `deleted` is the number of `*_version` rows removed and the remaining fields are post-purge stats.
 - `GET /settings/inbox` — returns `{scan_keywords: string[], scan_days: int, scan_batch_size: int, gmail: {connected: bool|null, last_scan_at: string|null}}`. The three scan fields mirror `inbox.*` in `config.yml`. `gmail.connected` is derived from `claude mcp list`: `true` if the server named `claude.ai Gmail` reports `✓ Connected`, `false` if listed but failed, `null` if the CLI is unavailable or the server is absent. `gmail.last_scan_at` is `InboxEmailDAO.last_scanned_at()`.
 - `POST /settings/inbox` — body `{scan_keywords?: string[], scan_days?: int, scan_batch_size?: int}`. Each present field is persisted under `inbox.*` in `config.yml`; absent fields are left untouched. `scan_days` and `scan_batch_size` must be `> 0`. Returns the same shape as GET.
+
+#### 7.4.10. Self-upgrade
+
+- `POST /system/upgrade` — streams the upgrade pipeline as Server-Sent Events. Each event payload is `{"phase": string, "level": "info"|"error"|"success", "line": string}`. The terminal event has `phase: "done"` and `level: "success"` or `level: "error"`. Phases in order:
+  - `precheck` — verifies `git rev-parse --abbrev-ref HEAD == "main"`, `git status --porcelain` is empty, and the cached `latest_version` is strictly greater than `api.__version__` (semver compare via `packaging.version.Version`). Any failure emits one or more `error` lines and a `done/error` terminal.
+  - `pull` — `git pull --ff-only --tags origin main`. Brings local `main` to origin's tip, fetches new tags. Stays on the `main` branch.
+  - `reset` — `git reset --hard v<target>`. Lands exactly on the target tag's commit while remaining on `main` (no detached HEAD).
+  - `install` — `uv pip install -e . --python venv/bin/python --quiet`. Re-installs deps from the new commit's `pyproject.toml`.
+  - `restart` — emits one `info` line ("Restart scheduled in 3s. The API will exit now."), then the terminal `done/success`.
+  - After flushing the terminal event, the API spawns a detached `bash -c "sleep 3 && bash start.sh"` (new session, closed FDs) and schedules `os._exit(0)` via `threading.Timer(0.5, …)`. The 0.5s gap lets uvicorn flush the SSE bytes to the client before the process dies; the 3s sleep in the child guarantees port 8000 is freed before `start.sh` tries to bind it. No `stop.sh` involved — the API kills itself.
 
 ---
 
@@ -1438,6 +1448,15 @@ ValueDialog — generic modal for collecting a single value:
 - submitLabel?: string
 - isSubmitting?: boolean
 
+ConsoleDialog — pure-presentation modal for surfacing a streaming log (Server-Sent Events from any source). Does NOT own the stream — the caller drives it via `useEventStream` (see §8.3) and passes events + status as props:
+
+- open: boolean
+- onOpenChange: (v: boolean) => void — close is guarded while `status === 'streaming'` (Esc / outside-click are ignored mid-run)
+- title: string — rendered alongside a status pill in the header (spinner while streaming, ✓ Done in `text-intent-success` on success, ✕ Failed in `text-intent-danger` on error)
+- events: StreamEvent[] — list of `{phase, level, line}`; rendered in a monospace `bg-panel-black` pane (`h-[360px]`, auto-scrolled to bottom on each new event); `level: "error"` lines colored `text-intent-danger`, `level: "success"` colored `text-intent-success`, others `text-label-lightest`
+- status: StreamStatus (`'idle' | 'streaming' | 'success' | 'error'`)
+- footer?: ReactNode — optional slot below the log pane (`px-5 py-3 border-t`); caller uses it for context-specific waiting/error messages
+
 ReasonDialog (lives in `ui/src/app/inbox/ReasonDialog.tsx`, not shared/controls/dialogs/) — reusable modal for collecting a mandatory reason; used for both declining email opportunities and archiving job opportunities:
 
 - open: boolean
@@ -1663,6 +1682,13 @@ Source lives in `ui/src/shared/utils/`.
 - `set<T>(key, value)` — JSON-serializes and writes
 - `remove(key)` — removes the key
 
+`useEventStream(url, options?)` — React hook that POSTs (or GETs) to an SSE endpoint and parses the response stream line-by-line. Owns the fetch + `AbortController`; the caller owns rendering (typically via `ConsoleDialog`). Returns `{events, status, start, cancel}`:
+
+- `events: StreamEvent[]` — accumulated `{phase, level, line}` payloads; the terminal `{phase: 'done', level}` is consumed internally to set `status`, not appended
+- `status: 'idle' | 'streaming' | 'success' | 'error'` — `'idle'` before `start()` and after `cancel()`; flips to `success`/`error` on terminal event or transport failure
+- `start()` — resets state and opens the stream; calling `start()` again cancels any prior stream first
+- `cancel()` — aborts the stream and returns to `'idle'`
+
 ### 8.4. API Client
 
 Source lives in `ui/src/services/client.ts`.
@@ -1737,6 +1763,8 @@ Source lives in `ui/src/app/`.
 
 `AppContext` (`ui/src/app/AppContext.tsx`) — holds system status and loading state; consumed by any component needing global status.
 
+Post-upgrade toast: on every `AppShell` mount, when `status.version` is available, compares it to `app.lastSeenVersion` in `localStorage`. If a prior value exists and differs, fires `toastInfo("Upgraded to <version> successfully")` and writes the new version back. This catches version changes from any source (the in-app self-upgrade flow, a manual `git pull` + restart, etc.) without coupling the toast to the upgrade dialog.
+
 Pages use a three-pane layout: Filter pane — List pane — Detail pane. Each pane owns its own vertical scroll area and never scrolls horizontally.
 
 ### 8.8. Sidebar
@@ -1765,7 +1793,7 @@ Button flash: when an opportunity is added or removed, the Opportunities button 
 
 Each tab body is a `flex flex-col gap-3` of one or more `bg-panel-lightest rounded-md p-4` group boxes containing label/value rows. Standard row helper: `flex items-center justify-between min-h-[32px]` with label `text-label-darker` on the left and the value/control on the right. Status indicators (Server, Agent, GMail MCP) share one style: when connected → `text-intent-success` label + `bg-intent-success` dot; otherwise → `text-label-medium` label + `bg-frame-medium` dot.
 
-- `ServerTab` — single group with one row: `Status` shows Connected/Not connected based on `system.status()` succeeding.
+- `ServerTab` — group box with three rows (`Status`, `Current version`, `Latest version`) and a standalone `primary` "Update to latest version" button below the group. The button is always visible and always enabled. Click behavior: if `latest_version === version`, a `toastInfo` says "You're already on the latest version X.Y.Z."; otherwise opens a `ConsoleDialog` driven by `useEventStream('/api/system/upgrade')` and calls `start()`. While the stream's `status === 'success'`, the tab polls `/system/status` every 1.5s (timeout 90s) until `version === latest_version`, then calls `window.location.reload()`. On timeout the dialog stays open with a `text-intent-danger` footer message.
 - `RuntimeTab` — single group with three rows in order: `Status` (live `claude_code_status`), `Agent` (literal "Claude Code"), `Model` (`DropdownEdit`, `selectOnly`, `filterMode="jump"`, with a leading "Default" option that maps to `null`). Selection POSTs to `/settings/general`.
 - `InboxTab` — four groups: (1) GMail MCP status, (2) Last scanned (omitted when null, `DateLabel` value), (3) Scan days + Scan batch size (numeric inputs, commit on blur or Enter), (4) Scan keywords — add-keyword input + Add button above a wrap of removable chips; new keywords prepend to the list.
 - `DatabaseTab` — two groups: (1) Database size, (2) Active versions + Historical versions; below the groups, a `danger` "Purge historical versions" button (disabled when historical count is 0) opens a `ConfirmationDialog`; POSTs `/settings/db/purge` and updates the cached stats from the response.
@@ -2033,3 +2061,17 @@ Absorb a duplicate opportunity (two entry points):
 2. **From Merge into…** — user opens `OpportunityMenu`, clicks **Merge into…**; selects canonical in `MergeIntoDialog`; confirms; calls `POST /opportunities/{canonical_id}/absorb/{current_id}` (roles reversed).
 - Server keeps canonical's version fields unchanged; relinks duplicate's comments to canonical; creates a new note dated to duplicate's `created_at` with a meta line `"Copied from [title – org] (url)"` (url omitted if absent; plus `" · Pay: {currency}{min} – {currency}{max}/{period}"` if duplicate has pay data) followed by the duplicate's description if present; hard-deletes duplicate; deletes similarity row.
 - UI invalidates the opportunities list and all cached similar-opportunity queries; navigates to the list page.
+
+### 9.6. Self-upgrade
+
+Apply the latest release tag from GitHub from inside the running app, with progress visible in a console dialog.
+
+- Settings → Server tab shows `Current version` (`api.__version__`) and `Latest version` (5-min cached, semver-sorted highest tag from `github.com/donmutti/career-repo`). A standalone "Update to latest version" button sits below the group; always visible and always enabled.
+- User clicks the button.
+  - If current == latest: an info toast says "You're already on the latest version X.Y.Z." Nothing else happens.
+  - Otherwise: `ConsoleDialog` opens and `useEventStream` starts `POST /api/system/upgrade`. The close button is disabled while the stream is active.
+- Backend runs the pipeline (see §7.4.10): `precheck` → `pull` → `reset` → `install` → `restart`. Each phase's stdout/stderr streams into the console as info lines; failures stream as `text-intent-danger` lines and emit a terminal `done/error`. The user must close the dialog manually after a failure; nothing has been started.
+- On success: the `restart` phase emits "Restart scheduled in 3s. The API will exit now." and the terminal `done/success`. The API immediately spawns a detached `sleep 3 && start.sh` and hard-exits 0.5s after sending the terminal event so port 8000 is freed before the child binds.
+- UI sees `status: 'success'` and begins polling `/system/status` every 1.5s. The console pill stays in the "streaming" state with a footer message "Waiting for the API to come back…". The first response where `version === latest` triggers `window.location.reload()`. If polling times out after 90s, the dialog shows a `text-intent-danger` footer message and stays open.
+- On reload, `AppShell` compares `status.version` (now the new version) against `app.lastSeenVersion` in `localStorage`. Since they differ, `toastInfo("Upgraded to X.Y.Z successfully")` fires and the stored value is updated. Subsequent loads do not toast.
+- Local state ends up on `main` at the tag's exact commit (no detached HEAD), with deps reinstalled. If the user runs `git pull` later, they continue to receive new commits past the tag normally.

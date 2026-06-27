@@ -18,7 +18,7 @@ from api.config import get_api_host, get_api_port, get_ui_port
 from api.db import init_db
 from api.db.connection import close_db_connection
 from api.db.daos.opportunity.base.opportunity_dao import OpportunityDAO
-from api.routers import opportunity, inbox, profile, agent, get_status, settings
+from api.routers import opportunity, inbox, profile, agent, get_status, settings, system as system_router
 from api.services.ai import embedding
 from api.routers.profile import work_experience_projects
 from api.routers.profile import resumes as profile_resumes
@@ -79,6 +79,7 @@ app.include_router(profile_resumes.router, prefix="/api")
 app.include_router(profile_work_experiences.router, prefix="/api")
 
 app.include_router(get_status.router, prefix="/api")
+app.include_router(system_router.upgrade.router, prefix="/api")
 
 # Include settings routers
 app.include_router(settings.general.router, prefix="/api")
