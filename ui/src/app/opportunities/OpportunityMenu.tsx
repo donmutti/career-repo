@@ -42,14 +42,15 @@ export function OpportunityMenu({
     }] : []),
     {divider: true, label: '', onClick: () => {}},
     {label: 'Set URL…', icon: <Link size={14}/>, onClick: onSetUrl, disabled: isChanging},
-    ...(opportunity.url ? [{label: 'Clear URL', icon: <Unlink size={14}/>, onClick: onClearUrl, disabled: isChanging}] : []),
     {label: 'Set location…', icon: <MapPin size={14}/>, onClick: onSetLocation, disabled: isChanging},
     ...(isJob ? [{label: 'Set work mode…', icon: <Building size={14}/>, onClick: onSetWorkMode, disabled: isChanging}] : []),
     {label: 'Set compensation…', icon: <Coins size={14}/>, onClick: onSetCompensation, disabled: isChanging},
     {divider: true, label: '', onClick: () => {}},
+    ...(opportunity.url ? [{label: 'Clear URL…', icon: <Unlink size={14}/>, onClick: onClearUrl, disabled: isChanging}] : []),
+    {divider: true, label: '', onClick: () => {}},
     {label: 'Merge into…', icon: <Merge size={14}/>, onClick: onMergeInto, disabled: isChanging},
     {divider: true, label: '', onClick: () => {}},
-    {label: 'Delete...', icon: <Trash2 size="sm"/>, onClick: onDelete, danger: true, disabled: isChanging},
+    {label: 'Delete…', icon: <Trash2 size="sm"/>, onClick: onDelete, danger: true, disabled: isChanging},
   ]
 
   return (
