@@ -1,15 +1,17 @@
 import {useState} from 'react'
-import {useNavigate} from 'react-router'
+import {useNavigate, useOutletContext} from 'react-router'
 import {InlineEdit} from '@/shared/controls/edits/InlineEdit'
 import {useOpportunities} from '@/app/opportunities/useOpportunities'
 import {ApiError, opportunities as opApi} from '@/services/client'
 import {queryClient} from '@/services/queryClient'
 import {queryKeys} from '@/services/queryKeys'
 import {toastInfo} from '@/shared/utils/ToastUtils'
+import type {OpportunityContext} from '@/app/opportunities/OpportunityPage'
 
 export function AddJobBar() {
   const navigate = useNavigate()
   const {createMutation} = useOpportunities()
+  const {setStatusFilter} = useOutletContext<OpportunityContext>()
   const [value, setValue] = useState('')
   const [focused, setFocused] = useState(false)
 
@@ -21,6 +23,7 @@ export function AddJobBar() {
         setFocused(false)
         const id = (data as {id?: string})?.id
         if (id) {
+          setStatusFilter('opened')
           navigate(`/opportunities/jobs/${id}`)
           opApi.source(id).then(() => {
             queryClient.invalidateQueries({queryKey: queryKeys.opportunities})
