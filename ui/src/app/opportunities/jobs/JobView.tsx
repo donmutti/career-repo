@@ -1,6 +1,6 @@
 import {useEffect, useRef, useState} from 'react'
 import {useNavigate} from 'react-router'
-import {ExternalLink, Pencil, Plus, RefreshCw, X} from 'lucide-react'
+import {ExternalLink, MapPin, Pencil, Plus, RefreshCw, X} from 'lucide-react'
 import {Spinner} from '@/shared/controls/Spinner'
 import {Flow} from '@/shared/controls/Flow'
 import {OpportunityMenu} from '@/app/opportunities/OpportunityMenu'
@@ -44,6 +44,8 @@ export function JobView({opportunityId}: JobViewProps) {
   const [clearUrlDialogOpen, setClearUrlDialogOpen] = useState(false)
   const [compensationDialogOpen, setCompensationDialogOpen] = useState(false)
   const [archiveReasonOpen, setArchiveReasonOpen] = useState(false)
+  const [locationDialogOpen, setLocationDialogOpen] = useState(false)
+  const [locationInput, setLocationInput] = useState('')
 
   const {
     opportunity,
@@ -172,17 +174,23 @@ export function JobView({opportunityId}: JobViewProps) {
       <div className="flex-1 overflow-y-auto py-5 flex flex-col gap-3">
 
         {/* Header */}
-        <div className="flex items-start px-5 pt-1 pb-6 border-b border-frame-lighter pr-6">
+        <div className="flex items-start px-5 pt-1 pb-5 border-b border-frame-lighter pr-6">
           <div className="flex flex-col flex-1 min-w-0">
-            {opportunity.url && (
-              <a href={opportunity.url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 px-3 text-sm text-intent-info one-liner mb-2">
-                {opportunity.avatar_url
-                  ? <img src={opportunity.avatar_url} alt="" className="w-5 h-5 rounded object-contain shrink-0" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}/>
-                  : <ExternalLink size={13} className="shrink-0"/>
-                }
-                {opportunity.url}
-              </a>
-            )}
+            <div
+              className="h-9 flex items-center rounded hoverable hoverable-text cursor-pointer"
+              onClick={() => { setUrlInput(opportunity.url ?? ''); setSetUrlDialogOpen(true) }}
+            >
+              {opportunity.url
+                ? <a href={opportunity.url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="flex items-center gap-1.5 px-3 text-intent-info one-liner">
+                    {opportunity.avatar_url
+                      ? <img src={opportunity.avatar_url} alt="" className="w-5 h-5 rounded object-contain shrink-0" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}/>
+                      : <ExternalLink size={13} className="shrink-0"/>
+                    }
+                    {opportunity.url}
+                  </a>
+                : <span className="px-3 text-label-medium">URL</span>
+              }
+            </div>
             <InlineEdit
               value={activeVersion.title ?? ''}
               placeholder="Job title"
@@ -213,6 +221,7 @@ export function JobView({opportunityId}: JobViewProps) {
               onGenerateCoverLetter={() => generateCoverLetter()}
               onSetUrl={() => { setUrlInput(opportunity.url ?? ''); setSetUrlDialogOpen(true) }}
               onClearUrl={() => setClearUrlDialogOpen(true)}
+              onSetLocation={() => { setLocationInput(activeVersion.location ?? ''); setLocationDialogOpen(true) }}
               onSetCompensation={() => setCompensationDialogOpen(true)}
               onMergeInto={() => setMergeIntoDialogOpen(true)}
               onDelete={() => setDeleteDialogOpen(true)}
@@ -220,11 +229,21 @@ export function JobView({opportunityId}: JobViewProps) {
           </div>
         </div>
 
-        {pay && (
-          <div className="px-8 pt-1 pb-5 border-b border-frame-lighter">
-            <span className={`text-sm font-medium ${isChanging ? 'text-label-medium' : ''}`}>{pay}</span>
-          </div>
-        )}
+        <div className="flex items-center justify-between px-6 pt-1 pb-5 border-b border-frame-lighter">
+          <button
+            className={`flex items-center gap-1 p-2 one-liner rounded hoverable hoverable-text ${activeVersion.location ? `font-medium ${isChanging ? 'text-label-medium' : ''}` : 'text-label-medium'}`}
+            onClick={() => { setLocationInput(activeVersion.location ?? ''); setLocationDialogOpen(true) }}
+          >
+            <MapPin size={13} className="shrink-0"/>
+            {activeVersion.location ?? 'Location'}
+          </button>
+          <button
+            className={`p-2 w-fit rounded hoverable hoverable-text ${pay ? `font-medium ${isChanging ? 'text-label-medium' : ''}` : 'text-label-medium'}`}
+            onClick={() => setCompensationDialogOpen(true)}
+          >
+            {pay ?? 'Compensation'}
+          </button>
+        </div>
 
         {/* Cover letters */}
         <div className="relative px-3 border-b border-frame-lighter pb-3">
@@ -367,6 +386,27 @@ export function JobView({opportunityId}: JobViewProps) {
             value={urlInput}
             onChange={e => setUrlInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') { setUrl(urlInput); setSetUrlDialogOpen(false) } }}
+            className="w-full"
+          />
+        </div>
+      </ValueDialog>
+
+      <ValueDialog
+        open={locationDialogOpen}
+        onOpenChange={setLocationDialogOpen}
+        title="Set location"
+        submitLabel="Save"
+        onSubmit={() => { patch({location: locationInput}); setLocationDialogOpen(false) }}
+      >
+        <div className="flex flex-col gap-1.5">
+          <label>Location</label>
+          <input
+            ref={el => { el && setTimeout(() => el.focus(), 0) }}
+            type="text"
+            placeholder="e.g. Luxembourg, Remote"
+            value={locationInput}
+            onChange={e => setLocationInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { patch({location: locationInput}); setLocationDialogOpen(false) } }}
             className="w-full"
           />
         </div>

@@ -71,6 +71,7 @@ export function CompensationDialog({open, onOpenChange, payMin, payMax, payCurre
           <div className="flex flex-col gap-1.5">
             <label>Min</label>
             <input
+              autoFocus
               type="number"
               placeholder="e.g. 90000"
               value={min}
