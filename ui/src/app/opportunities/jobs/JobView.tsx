@@ -179,14 +179,14 @@ export function JobView({opportunityId}: JobViewProps) {
         <div className="flex items-start px-5 pt-0 pb-4 border-b border-frame-lighter pr-6">
           <div className="flex flex-col flex-1 min-w-0">
             <div
-              className="h-9 flex items-center rounded hoverable hoverable-text cursor-pointer"
-              onClick={() => {
+              className={`h-9 flex items-center rounded ${isChanging ? '' : 'hoverable hoverable-text cursor-pointer'}`}
+              onClick={isChanging ? undefined : () => {
                 setUrlInput(opportunity.url ?? '');
                 setSetUrlDialogOpen(true)
               }}
             >
               {opportunity.url
-                ? <a href={opportunity.url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="flex items-center gap-1.5 px-3 text-intent-info one-liner">
+                ? <a href={opportunity.url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className={`flex items-center gap-1.5 px-3 one-liner ${isChanging ? 'text-label-medium' : 'text-intent-info'}`}>
                   {opportunity.avatar_url
                     ? <img src={opportunity.avatar_url} alt="" className="w-5 h-5 rounded object-contain shrink-0" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}/>
                     : <ExternalLink size={13} className="shrink-0"/>
