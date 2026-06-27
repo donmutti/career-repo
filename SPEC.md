@@ -31,8 +31,10 @@ career-repo/
 │   │   └── types/                        # Shared enums and value objects
 │   ├── routers/                          # API endpoints (agent/, inbox/, opportunity/, profile/)
 │   ├── services/                         # Business logic and AI
-│   │   ├── ai/                           # AI invocation + agents/
-│   │   └── files/                        # File writing service
+│   │   ├── ai/                           # AI invocation + agents/ + embedding service
+│   │   ├── files/                        # File writing service
+│   │   ├── inbox/                        # Inbox scan orchestration
+│   │   └── opportunity/                  # Opportunity service
 │   ├── config.py                         # Runtime configuration
 │   └── main.py                           # FastAPI entry point
 ├── db/                                   # Database files
@@ -612,7 +614,7 @@ Versioned entities: two-table pattern — `<entity>` holds identity table (`id`,
 
 - id TEXT primary key
 - created_at TEXT not null
-- text TEXT not null unique — display text; "Not for me" for the sentinel row
+- text TEXT unique — display text; "Not for me" for the sentinel row (nullable in schema)
 - count INTEGER not null default 1
 
 `opportunity_embedding` — stores a packed float32 vector for each sourced opportunity; used for similarity detection:
@@ -930,6 +932,7 @@ InboxEmailDAO (BaseEntityDAO[InboxEmail]):
 - `get_by_external_id(external_id): InboxEmail | None`
 - `get_known_external_ids(external_ids): set[str]` — returns the subset of given IDs already stored in the DB
 - `list_all(from_date?, to_date?): list[InboxEmail]`
+- `list_pending(): list[InboxEmail]` — emails with at least one `pending` extracted opportunity
 - `counts_by_window(today): dict` — returns per-window counts and all-sorted flags for `all`, `today`, `yesterday`, `last7`, `last30`
 - `last_scanned_at(): str | None` — returns `created_at` of the most recently created `inbox_email` row, or `None` if inbox is empty; used by `GET /inbox/status` only — scan cursor is stored in frontend localStorage
 - `clear(): None` — deletes all inbox emails (cascade deletes email_opportunity)
@@ -1047,7 +1050,7 @@ All endpoints prefixed with `/api`. Source lives in `api/routers/`.
 - `GET /opportunities` — lists all opportunities
 - `POST /opportunities` — creates opportunity; returns existing if URL already present
 - `GET /opportunities/{id}` — returns opportunity; 404 if not found
-- `PATCH /opportunities/{id}` — creates new version with updated fields; when status changes to `closed` and `archive_reason` is provided, records the reason via `DeclineReasonDAO.record()` and writes a note `"Archived: {reason}"` to the opportunity
+- `PATCH /opportunities/{id}` — creates new version with updated fields; respects explicit nulls in the body (uses Pydantic `model_fields_set` so a client-sent `null` clears the value while omitted fields are left unchanged); when status changes to `closed` and `archive_reason` is provided, records the reason via `DeclineReasonDAO.record()` and writes a note `"Archived: {reason}"` to the opportunity
 - `DELETE /opportunities/{id}` — deletes opportunity; 204
 - `GET /opportunities/{id}/history` — returns version history
 - `POST /opportunities/{id}/source` — AI sourcing: fetches job details from the web and scores against profile; runs in background; 202
@@ -1061,8 +1064,10 @@ All endpoints prefixed with `/api`. Source lives in `api/routers/`.
 - `GET /opportunities/{id}/similar` — returns list[OpportunitySimilarity] for undismissed near-duplicate pairs; 404 if opportunity not found
 - `DELETE /opportunities/{id}/similar/{neighbor_id}` — dismisses a near-duplicate candidate (sets dismissed_at); 404 if either opportunity not found; 204
 - `PATCH /opportunities/{id}/url` — updates the URL of an opportunity; body: `{url: string}`; 404 if not found; returns updated Opportunity
+- `PATCH /opportunities/{id}/compensation` — updates compensation fields (`job_pay_min`, `job_pay_max`, `job_pay_currency`, `job_pay_period`) with explicit-null support to clear values; creates a new version; 404 if not found; returns updated Opportunity
 - `POST /opportunities/{id}/absorb/{neighbor_id}` — merges neighbor into this opportunity, relinks comments, hard-deletes neighbor, deletes similarity row; 404 if either not found; 409 if pair is already dismissed; 204
 - `GET /attachments/{id}/download` — downloads attachment file; `Content-Disposition` filename is `{attachment.title}.{ext}` if title is set, otherwise the physical filename
+- `DELETE /attachments/{id}` — hard-deletes an attachment record and removes its underlying file; 204
 
 #### 7.4.6. Comments
 
@@ -1077,6 +1082,7 @@ All endpoints prefixed with `/api`. Source lives in `api/routers/`.
 - `GET /inbox/scan/active` — returns active scan run id or null
 - `POST /inbox/scan` — scans Gmail inbox via Claude; accepts optional `last_scanned_at` (ISO timestamp) in body to set the scan cursor; deduplicates and stores new emails; runs in background; 200
 - `GET /inbox` — lists stored emails; accepts `from_date` and `to_date` query params
+- `GET /inbox/pending` — lists emails that have at least one `pending` (unsorted) extracted opportunity
 - `GET /inbox/{id}` — returns email; 404 if not found
 - `DELETE /inbox/{id}` — deletes email and its extracted opportunities; 204
 - `POST /inbox/{id}/extract` — extracts opportunities from email via Claude; returns created opportunities
@@ -1418,7 +1424,7 @@ ValueDialog — generic modal for collecting a single value:
 - submitLabel?: string
 - isSubmitting?: boolean
 
-ReasonDialog — reusable modal for collecting a mandatory reason; used for both declining email opportunities and archiving job opportunities:
+ReasonDialog (lives in `ui/src/app/inbox/ReasonDialog.tsx`, not shared/controls/dialogs/) — reusable modal for collecting a mandatory reason; used for both declining email opportunities and archiving job opportunities:
 
 - open: boolean
 - onOpenChange: (v: boolean) => void
@@ -1573,7 +1579,7 @@ Semantic tokens (light / dark):
 
 - `devmod` — applies `bg-rose-300/50` (for layout debugging)
 - `one-liner` — single-line truncation with ellipsis
-- `shade-xs`, `shade-sm`, `shade-md`, `shade-lg`, `shade-xl` — box-shadow depth scale
+- `shade-xs`, `shade-sm`, `shade-md`, `shade-lg`, `shade-xl`, `shade-2xl` — box-shadow depth scale
 - `hoverable` — subtle bg darkening on hover
 - `hoverable-inverse` — subtle bg lightening on hover (for dark surfaces)
 - `hoverable-text` — darkens text on hover
@@ -1602,6 +1608,7 @@ The below button utilities apply to buttons only (`button`, DropdownButton, etc.
 - `attention-dot` — 8px filled circle in `action` color; used for inbox and email unsorted indicators
 - `steps` — flex row of step tabs (no list style)
 - `step-tab` — tab item; `.active` highlights with action color; `.done` highlights with success color
+- `.flash-add`, `.flash-delete` — one-shot 0.6s ease-out flash animation classes applied imperatively to elements (e.g. sidebar nav items) when the underlying count increases or decreases; counterpart `@keyframes flash-add` / `flash-delete`
 
 #### 8.2.5. Typography utilities
 
@@ -1655,10 +1662,12 @@ Hand-written typed API client. Thin `fetch` wrapper organized by resource (e.g. 
 
 ### 8.5. API Queries
 
-Source lives co-located with their domain under `ui/src/app/<domain>/`, e.g.:
+Source lives co-located with their domain under `ui/src/app/<domain>/`:
 
-- `ui/src/app/opportunities/useOpportunities.ts`
-- `ui/src/app/inbox/useInbox.ts`
+- `ui/src/app/opportunities/useOpportunities.ts` — list + filters
+- `ui/src/app/opportunities/useOpportunity.ts` — single opportunity with all related mutations (patch, source, comments, attachments, cover-letter, similar, absorb/merge, setUrl, setCompensation); on successful `setUrl` automatically re-scores when the URL changed to a non-empty value
+- `ui/src/app/inbox/useInboxScan.ts` — scan lifecycle (active scan polling, elapsed timer, localStorage cursor)
+- `ui/src/app/profile/useResumeParser.ts` — parse-work-experience run lifecycle
 
 TanStack Query (React Query) hooks manage all server state. Each query hook:
 
@@ -1778,7 +1787,7 @@ JobGroupByOption — per-mode grouping config:
 
 Score grade buckets (used by `'score'` mode): Excellent (9.0–10.0), Good (7.0–8.9), Average (5.0–6.9), Below average (3.0–4.9), Poor (0.0–2.9), Unscored — always shown, empty buckets start collapsed; range shown right-aligned in group header.
 
-Type list pages: `JobListPage`, `ProjectListPage`, `EducationListPage`, `NetworkingListPage`, `LearningListPage` — each follows the same pattern:
+Type list pages: `JobListPage` is the only fully implemented type list. `ProjectListPage`, `EducationListPage`, `NetworkingListPage`, `LearningListPage` are placeholders — each registers its `activeType` on mount and renders an `EmptyState` with the type icon, title, and `"Coming soon"` description. The pattern below describes the target shape for all type list pages once implemented:
 
 - List pane — `PaneHeader` with type label; Jobs only: `"By {mode}"` label (e.g. "By date") showing active group-by mode, and `ArrowDownUp` Group By dropdown ("Group by" header + Date / Status / Score / Company / Title / Compensation, each with icon, mutually exclusive with checkmarks); `AddJobBar` below header; `GroupedListView` grouped per `JobGroupByMode`; items pre-filtered by `timeWindow` and `statusFilter` from `OpportunityContext`; default (status): New (opened), Shortlisted (shortlisted), In progress (started), Completed (completed), Archived (closed, collapsed by default); Date mode groups by `created_at` (when added to the repo): today → "Today", yesterday → "Yesterday", other days this month → "Jun 20", older → "May 2026"; newest first; Title mode groups A–Z by first letter, then `#` for non-alpha
   - Each row: `JobRow` (or equivalent) — avatar, title, organization, score badge; clicking navigates to `…/:id`
@@ -1786,21 +1795,25 @@ Type list pages: `JobListPage`, `ProjectListPage`, `EducationListPage`, `Network
 
 `JobView` — detail view for a Job opportunity:
 
-- Toolbar: `Flow` status stepper (clicking "Archived" opens `ReasonDialog` with title "Why archiving?" and submit label "Archive" instead of directly patching); scoring area (spinner + elapsed timer while sourcing; "Re-score" / "Score" button; `ScoreBadge` opens `ScoreDialog`)
-- Header: URL link with avatar, editable title (`InlineEdit`), editable organization name (`InlineEdit`); `OpportunityMenu` (kebab)
-- Pay section (if present)
+- Toolbar: `Flow` status stepper (clicking "Archived" opens `ReasonDialog` with title "Why archiving?" and submit label "Archive" instead of directly patching); scoring area (spinner + elapsed timer while sourcing; "Re-score" / "Score" `IconButton` plus "Scored {date}" label when complete; `ScoreBadge` opens `ScoreDialog`)
+- Header (always rendered with consistent layout regardless of which fields are set): clickable URL row (avatar/favicon if available, otherwise `ExternalLink` icon, then URL text; placeholder "URL" when unset) — opens `ValueDialog` to set; editable title (`InlineEdit`, placeholder "Job title"); editable organization name (`InlineEdit`, placeholder "Organization"); `OpportunityMenu` (kebab)
+- Location / work mode / compensation row: clickable Location button (`MapPin` icon + value or "Location" placeholder) opens `ValueDialog`; clickable Work mode button (`Briefcase` icon + label or "Work mode" placeholder) opens `WorkModeDialog`; clickable Compensation button (`Coins` icon + formatted pay or "Compensation" placeholder), right-aligned, opens `CompensationDialog`
 - Cover letters section: `GroupView` with "Generate cover letter" action; `ListView` of `AttachmentRow`; spinner with elapsed timer while generating
 - Description section: `GroupedListView` with "Edit" action; `ShowMoreView` wrapping `TextEdit`
 - Similar opportunities section: collapsible `GroupView` with count; hidden when empty; renders `SimilarOpportunityRow` per item; positioned just above Notes
 - Notes section: `GroupedListView` with "Add note" action; `CommentRow` per note
 
-`OpportunityMenu` — `DropdownButton` with `IconButton` trigger:
+`OpportunityMenu` — `DropdownButton` with `IconButton` (kebab) trigger:
 
-- Visit URL (disabled when no URL set)
-- (divider)
-- Set URL… (opens `ValueDialog` with URL input pre-filled; disabled while sourcing) — calls `PATCH /opportunities/{id}/url`
-- Re-score (disabled while sourcing)
+- Re-score (disabled while sourcing or scoring)
 - Generate cover letter (Job only; disabled while sourcing or generating)
+- (divider)
+- Set URL… (opens `ValueDialog` with URL input pre-filled; disabled while sourcing) — calls `PATCH /opportunities/{id}/url`; on success, if the new URL differs from the previous and is non-empty, automatically triggers `POST /opportunities/{id}/source`
+- Set location… (opens `ValueDialog`; disabled while sourcing)
+- Set work mode… (Job only; opens `WorkModeDialog`; disabled while sourcing)
+- Set compensation… (Job only; opens `CompensationDialog`; disabled while sourcing) — calls `PATCH /opportunities/{id}/compensation` with explicit nulls to clear
+- (divider)
+- Clear URL… (only when URL is set; opens `ConfirmationDialog`; disabled while sourcing) — calls `PATCH /opportunities/{id}/url` with empty string
 - (divider)
 - Merge into… (opens `MergeIntoDialog`)
 - (divider)
@@ -1812,6 +1825,10 @@ Type list pages: `JobListPage`, `ProjectListPage`, `EducationListPage`, `Network
 
 - Shows avatar, title – organization name, similarity percentage (e.g. "97% match") right-aligned
 - **More** menu (`MoreVertical` icon, `sm` `IconButton`), visible on hover only — contains one item: **Merge here** (`SquaresUnite` icon) — opens `ConfirmationDialog`: `"[title]" will be deleted. Its notes and job description will be moved here as a note. This cannot be undone.`; on confirm calls `POST /opportunities/{id}/absorb/{neighbor_id}`
+
+`WorkModeDialog` (`ui/src/app/opportunities/jobs/WorkModeDialog.tsx`) — sets `job_work_mode` via a non-editable `DropdownEdit`; options are Onsite / Remote / Hybrid plus a `—` (clear) entry; submits `null` when cleared.
+
+`CompensationDialog` (`ui/src/app/opportunities/jobs/CompensationDialog.tsx`) — edits `job_pay_min`, `job_pay_max`, `job_pay_currency` (`DropdownEdit`), `job_pay_period` (`DropdownEdit`); clearing both min and max nulls currency and period as well.
 
 `MergeIntoDialog` — manual merge picker; opened from **Merge into…** in `OpportunityMenu`:
 
@@ -1870,7 +1887,7 @@ Source lives in `ui/src/app/profile/`.
 - List pane — Resume entry + `ListView` of `WorkExperienceRow`; "+" opens `WorkExperienceDialog`
 - Detail pane — `ResumeDetailPane` or `WorkExperienceDetailPane` per route
 
-`ResumeDetailPane` — shows uploaded resume with parse-work-experience action; `UploadButton` to upload new resume
+`ResumeDetailPane` — shows uploaded resume via `ResumeView` (preview + delete); `UploadButton` to upload new resume. The "Sync from resume" `IconButton` (invokes `POST /profile/resumes/{id}/parse-work-experience`) lives in the parent `ProfileWorkExperiencePage` header, not inside this pane.
 
 `WorkExperienceDetailPane` — shows work experience details; `WorkExperienceView` with editable fields and projects section (`ProjectRow`, `ProjectDialog`)
 
@@ -1902,7 +1919,7 @@ Upload resume and parse work experience:
 - User navigates to Profile → Work experience.
 - User uploads a PDF/DOC resume via `UploadButton`.
 - System stores the file and creates a `Resume` record.
-- User clicks "Parse work experience"; system invokes Claude with `parse-work-experience-from-resume.md`.
+- User clicks the "Sync from resume" `IconButton` in the `ProfileWorkExperiencePage` header; system invokes Claude with `parse-work-experience-from-resume.md`.
 - On completion, work experience entries are created and appear in the list.
 
 Manage work experience manually:

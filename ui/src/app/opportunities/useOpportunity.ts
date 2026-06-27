@@ -177,9 +177,10 @@ export function useOpportunity(opportunityId: string, options: UseOpportunityOpt
 
   const setUrlMutation = useMutation({
     mutationFn: (url: string) => opApi.setUrl(opportunityId, url),
-    onSuccess: () => {
+    onSuccess: (_data, url) => {
       queryClient.invalidateQueries({queryKey: queryKeys.opportunity(opportunityId)})
       queryClient.invalidateQueries({queryKey: queryKeys.opportunities})
+      if (url && url !== opportunity?.url) sourceMutation.mutate()
     },
   })
 
