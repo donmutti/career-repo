@@ -52,6 +52,8 @@ career-repo/
 │   │   │   ├── AppContext.tsx            # App-level context and system status
 │   │   │   ├── AppRoutes.tsx             # Route definitions
 │   │   │   ├── Sidebar.tsx               # App sidebar component
+│   │   │   ├── SettingsDialog.tsx        # Settings dialog with tabbed left rail
+│   │   │   ├── settings/                  # Settings dialog tab panels (GeneralTab, DatabaseTab, InboxTab)
 │   │   ├── shared/                       # Reusable, general-purpose components and utils
 │   │   │   ├── context/                  # Shared React contexts
 │   │   │   ├── controls/                 # Reusable, general-purpose components (buttons, inputs, etc.)
@@ -76,7 +78,7 @@ Tech stack:
 
 ## 3. Configuration
 
-Runtime settings live in `config.yml` at the repo root. The API reads this file at startup.
+Runtime settings live in `config.yml` at the repo root. The API reads this file at startup. The `/settings/*` endpoints (see §7.4.9) mutate it in place at request time and rewrite the file via `yaml.safe_dump`. Writes that pass `value=None` remove the key entirely rather than persisting `null`.
 
 - `api.host` — API server host (default: 127.0.0.1)
 - `api.port` — API server port (default: 8000)
@@ -86,9 +88,10 @@ Runtime settings live in `config.yml` at the repo root. The API reads this file 
 - `db.attachment_path` — root directory for generated attachments (default: ./db/attachments)
 - `db.resumes_path` — root directory for uploaded resume files (default: ./db/resumes)
 - `db.images_path` — root directory for uploaded images (default: ./db/images)
-- `inbox.scan_days` — how many days back to scan Gmail when no cursor is available (first scan or cleared localStorage); subsequent scans pass `last_scanned_at` from frontend localStorage (default: 30)
-- `inbox.scan_batch_size` — number of emails per batch (default: 10)
-- `inbox.scan_keywords` — list of search terms used to filter career-related emails
+- `inbox.scan_days` — how many days back to scan Gmail when no cursor is available (first scan or cleared localStorage); subsequent scans pass `last_scanned_at` from frontend localStorage (default: 30); writable via `POST /settings/inbox`
+- `inbox.scan_batch_size` — number of emails per batch (default: 10); writable via `POST /settings/inbox`
+- `inbox.scan_keywords` — list of search terms used to filter career-related emails; writable via `POST /settings/inbox`
+- `runtime.model` — Claude Code model id to invoke (e.g. `claude-opus-4-7`); absent/empty means "use the CLI's default"; writable via `POST /settings/general`
 
 ---
 
@@ -1099,6 +1102,17 @@ All endpoints prefixed with `/api`. Source lives in `api/routers/`.
 - `POST /agent-runs` — starts agent run; streams output as SSE; each line is a `StreamEvent` JSON object; stream ends with exactly one terminal event: `done`, `cancelled`, or `error`; absence of a terminal event before connection close indicates abnormal termination
 - `DELETE /agent-runs/{id}` — cancels active run; aborts in-flight SDK request via `runtime.cancel()`; marks the run `cancelled` in the in-memory store
 
+#### 7.4.9. Settings
+
+All endpoints mounted at `/settings`. Writes persist to `config.yml` via the shared `set_config(section, key, value)` helper (see §3).
+
+- `GET /settings/general` — returns `{claude_code_status: "online"|"offline", model: string|null, available_models: string[]}`. `claude_code_status` is a live probe of the `claude` CLI (`shutil.which` + `claude --version`). `model` is `runtime.model` from `config.yml` (`null` if absent or empty). `available_models` is fetched live from `https://api.anthropic.com/v1/models` using `ANTHROPIC_API_KEY` if present; otherwise a hardcoded fallback list.
+- `POST /settings/general` — body `{model: string|null}`. Validates `model` against `available_models` when non-null; `null` clears the setting (removes the key from `config.yml`). Returns the same shape as GET. 400 on unknown model.
+- `GET /settings/db` — returns `{size_bytes: int, active_version_count: int, historical_version_count: int}`. `size_bytes` is the on-disk size of `db.path`. Version counts sum across every `*_version` table discovered from `sqlite_master`, split by `active_to IS NULL` vs `active_to IS NOT NULL`.
+- `POST /settings/db/purge` — no body. Deletes every `*_version` row where `active_to IS NOT NULL`, plus dependent rows that would otherwise violate foreign keys (currently `work_permit` rows referencing historical `profile_version` rows). Returns `{deleted: int, size_bytes: int, active_version_count: int, historical_version_count: int}` where `deleted` is the number of `*_version` rows removed and the remaining fields are post-purge stats.
+- `GET /settings/inbox` — returns `{scan_keywords: string[], scan_days: int, scan_batch_size: int, gmail: {connected: bool|null, last_scan_at: string|null}}`. The three scan fields mirror `inbox.*` in `config.yml`. `gmail.connected` is derived from `claude mcp list`: `true` if the server named `claude.ai Gmail` reports `✓ Connected`, `false` if listed but failed, `null` if the CLI is unavailable or the server is absent. `gmail.last_scan_at` is `InboxEmailDAO.last_scanned_at()`.
+- `POST /settings/inbox` — body `{scan_keywords?: string[], scan_days?: int, scan_batch_size?: int}`. Each present field is persisted under `inbox.*` in `config.yml`; absent fields are left untouched. `scan_days` and `scan_batch_size` must be `> 0`. Returns the same shape as GET.
+
 ---
 
 ## 8. UI
@@ -1713,7 +1727,7 @@ Routes:
 
 Source lives in `ui/src/app/`.
 
-`App` — root component; wraps everything in `QueryClientProvider` and `RadixTooltip.Provider`; mounts `ToastContainer` (bottom-center, 3s auto-close).
+`App` — root component; wraps everything in `QueryClientProvider` and `RadixTooltip.Provider`; mounts `ToastContainer` (bottom-center, 3s auto-close) and `SettingsDialog`.
 
 `AppShell` — layout shell; fetches `GET /system/status` on mount; shows full-screen spinner while loading. Routing logic:
 
@@ -1737,9 +1751,24 @@ Top-aligned navigation buttons (Radix Tooltip + button):
 - Inbox — navigates to `/inbox`; active when on `/inbox`; shows an attention dot when any time window has `count > 0 && !all_sorted` (fetched from `GET /inbox/counts`)
 - Opportunities — navigates to `/opportunities`; active when on `/opportunities`
 
+Bottom-aligned: Settings button (`Settings` icon) — navigates to `?settings=server` on the current location to open `SettingsDialog` on the Server tab.
+
 Active button: action-colored icon + `hovered` background.
 
 Button flash: when an opportunity is added or removed, the Opportunities button briefly flashes — blue (`flash-add`) on add, red (`flash-delete`) on remove. Triggered by `flashSidebarButton(button, intent)` from `AppContext`.
+
+`SettingsDialog` (`ui/src/app/SettingsDialog.tsx`) — mounted at the `App` root. Opens when the URL contains a `?settings` search param; closing removes the param via `navigate(..., {replace: true})`. `BaseDialog` titled "Settings", `w-[810px]`, body height `h-[600px]`. Two-column layout: left rail (`w-[208px]`, `bg-panel-lighter`, `border-r`, `px-1 py-3`) hosts a `ListView` of tabs (icon + label); right pane (`flex-1`, `overflow-y-auto`, `p-5`) renders the active tab component. Active tab key is read from `?settings=<key>` (URL-driven, not local state); selecting a tab updates the URL via `replace`. Unknown values fall back to the default tab (`server`). Tabs render in this order:
+- `server` — "Server" (`Server` icon) — `ServerTab`
+- `runtime` — "Agent" (`Cpu` icon) — `RuntimeTab`
+- `inbox` — "Inbox" (`Mail` icon) — `InboxTab`
+- `database` — "Database" (`Database` icon) — `DatabaseTab`
+
+Each tab body is a `flex flex-col gap-3` of one or more `bg-panel-lightest rounded-md p-4` group boxes containing label/value rows. Standard row helper: `flex items-center justify-between min-h-[32px]` with label `text-label-darker` on the left and the value/control on the right. Status indicators (Server, Agent, GMail MCP) share one style: when connected → `text-intent-success` label + `bg-intent-success` dot; otherwise → `text-label-medium` label + `bg-frame-medium` dot.
+
+- `ServerTab` — single group with one row: `Status` shows Connected/Not connected based on `system.status()` succeeding.
+- `RuntimeTab` — single group with three rows in order: `Status` (live `claude_code_status`), `Agent` (literal "Claude Code"), `Model` (`DropdownEdit`, `selectOnly`, `filterMode="jump"`, with a leading "Default" option that maps to `null`). Selection POSTs to `/settings/general`.
+- `InboxTab` — four groups: (1) GMail MCP status, (2) Last scanned (omitted when null, `DateLabel` value), (3) Scan days + Scan batch size (numeric inputs, commit on blur or Enter), (4) Scan keywords — add-keyword input + Add button above a wrap of removable chips; new keywords prepend to the list.
+- `DatabaseTab` — two groups: (1) Database size, (2) Active versions + Historical versions; below the groups, a `danger` "Purge historical versions" button (disabled when historical count is 0) opens a `ConfirmationDialog`; POSTs `/settings/db/purge` and updates the cached stats from the response.
 
 ### 8.9. Pages
 

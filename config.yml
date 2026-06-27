@@ -1,49 +1,48 @@
 api:
-  host: "127.0.0.1"
+  host: 127.0.0.1
   port: 8000
-
 ui:
   port: 3000
-
 db:
-  path: "./db/data.db"
-  dump_path: "./db/data.json"
-  attachment_path: "./db/attachments"
-  resumes_path: "./db/resumes"
-  images_path: "./db/images"
-
+  path: ./db/data.db
+  dump_path: ./db/data.json
+  attachment_path: ./db/attachments
+  resumes_path: ./db/resumes
+  images_path: ./db/images
 inbox:
   scan_days: 30
   scan_batch_size: 10
   scan_keywords:
-    - "job"
-    - "recruiter"
-    - "opportunity"
-    - "job opportunity"
-    - "open position"
-    - "we're hiring"
-    - "interview"
-    - "job offer"
-    - "your application"
-    - "application received"
-    - "next steps"
-    - "LinkedIn"
-    - "career opportunity"
-    - "joining our team"
-    - "hiring manager"
-    - "offer letter"
-    - "salary"
-    - "compensation"
-    - "start date"
-    - "onboarding"
-    - "background check"
-    - "reference check"
-    - "unfortunately we"
-    - "excited to offer"
-    - "move forward"
-    - "not moving forward"
-    - "position has been filled"
-    - "new job"
-    - "new jobs"
-    - "technical assessment"
-    - "coding test"
+  - job
+  - recruiter
+  - opportunity
+  - job opportunity
+  - open position
+  - we're hiring
+  - interview
+  - job offer
+  - your application
+  - application received
+  - next steps
+  - LinkedIn
+  - career opportunity
+  - joining our team
+  - hiring manager
+  - offer letter
+  - salary
+  - compensation
+  - start date
+  - onboarding
+  - background check
+  - reference check
+  - unfortunately we
+  - excited to offer
+  - move forward
+  - not moving forward
+  - position has been filled
+  - new job
+  - new jobs
+  - technical assessment
+  - coding test
+  - offer
+runtime: {}

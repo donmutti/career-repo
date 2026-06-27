@@ -1,20 +1,36 @@
 """Load configuration from config.yml at the repo root."""
 
 from pathlib import Path
+from typing import Any, Optional
 
 import yaml
 
 ROOT = Path(__file__).parent.parent
+CONFIG_PATH = ROOT / "config.yml"
 _config: dict = {}
 
 
 def _load() -> dict:
     global _config
     if not _config:
-        path = ROOT / "config.yml"
-        with open(path) as f:
+        with open(CONFIG_PATH) as f:
             _config = yaml.safe_load(f) or {}
     return _config
+
+
+def _save() -> None:
+    with open(CONFIG_PATH, "w") as f:
+        yaml.safe_dump(_config, f, sort_keys=False, allow_unicode=True)
+
+
+def set_config(section: str, key: str, value: Any) -> None:
+    cfg = _load()
+    section_dict = cfg.setdefault(section, {})
+    if value is None:
+        section_dict.pop(key, None)
+    else:
+        section_dict[key] = value
+    _save()
 
 
 def get_api_host() -> str:
@@ -59,3 +75,7 @@ def get_inbox_scan_batch_size() -> int:
 
 def get_inbox_scan_keywords() -> list[str]:
     return _load().get("inbox", {}).get("scan_keywords", [])
+
+
+def get_runtime_model() -> Optional[str]:
+    return _load().get("runtime", {}).get("model") or None

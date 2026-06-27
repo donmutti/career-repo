@@ -1,6 +1,6 @@
 import {useLocation, useNavigate} from 'react-router'
 import {useQuery} from '@tanstack/react-query'
-import {Goal, Mail, User} from 'lucide-react'
+import {Goal, Mail, Settings, User} from 'lucide-react'
 import {queryKeys} from '@/services/queryKeys'
 import {inbox as inboxApi, profile as profileApi} from '@/services/client'
 import {Tooltip} from '@/shared/controls/Tooltip'
@@ -85,6 +85,21 @@ export function Sidebar({flashingButton}: SidebarProps) {
             <span className={`flex items-center justify-center w-full h-full rounded-md ${flashButton('opportunities') ? `flash-${flashButton('opportunities')!.intent}` : ''}`}>
               <Goal size={20}/>
             </span>
+          </button>
+        </Tooltip>
+      </div>
+
+      <div className="flex flex-col items-center pb-3">
+        <Tooltip content="Settings">
+          <button
+            onClick={() => {
+              const params = new URLSearchParams(location.search)
+              params.set('settings', 'server')
+              navigate(`${location.pathname}?${params.toString()}${location.hash}`)
+            }}
+            className="flex items-center justify-center rounded-md w-10 h-10 hoverable hoverable-text text-label-medium"
+          >
+            <Settings size={20}/>
           </button>
         </Tooltip>
       </div>

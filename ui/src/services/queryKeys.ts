@@ -21,4 +21,7 @@ export const queryKeys = {
   workExperienceProjects: (id: string) => ['work-experience-projects', id] as const,
   resumes: ['profile', 'resumes'] as const,
   activeParseRun: ['profile', 'resumes', 'parse-active'] as const,
+  settingsGeneral: ['settings', 'general'] as const,
+  settingsDb: ['settings', 'db'] as const,
+  settingsInbox: ['settings', 'inbox'] as const,
 }

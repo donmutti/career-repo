@@ -139,6 +139,51 @@ export const attachments = {
   delete: (id: string) => apiFetch<void>(`/attachments/${id}`, {method: 'DELETE'}),
 }
 
+// Settings
+export interface GeneralSettings {
+  claude_code_status: 'online' | 'offline'
+  model: string | null
+  available_models: string[]
+}
+
+export interface DbStats {
+  size_bytes: number
+  active_version_count: number
+  historical_version_count: number
+}
+
+export interface PurgeResult extends DbStats {
+  deleted: number
+}
+
+export interface GmailStatus {
+  connected: boolean | null
+  last_scan_at: string | null
+}
+
+export interface InboxSettings {
+  scan_keywords: string[]
+  scan_days: number
+  scan_batch_size: number
+  gmail: GmailStatus
+}
+
+export const settings = {
+  general: {
+    get: () => apiFetch<GeneralSettings>('/settings/general'),
+    update: (data: {model: string | null}) => apiFetch<GeneralSettings>('/settings/general', {method: 'POST', body: JSON.stringify(data)}),
+  },
+  db: {
+    get: () => apiFetch<DbStats>('/settings/db'),
+    purge: () => apiFetch<PurgeResult>('/settings/db/purge', {method: 'POST'}),
+  },
+  inbox: {
+    get: () => apiFetch<InboxSettings>('/settings/inbox'),
+    update: (data: Partial<{scan_keywords: string[]; scan_days: number; scan_batch_size: number}>) =>
+      apiFetch<InboxSettings>('/settings/inbox', {method: 'POST', body: JSON.stringify(data)}),
+  },
+}
+
 // Agent runs
 export const agentRuns = {
   list: () => apiFetch<unknown>('/agent-runs'),

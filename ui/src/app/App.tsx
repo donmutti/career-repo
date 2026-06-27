@@ -7,6 +7,7 @@ import * as RadixTooltip from '@radix-ui/react-tooltip'
 import {queryClient} from '@/services/queryClient'
 import {AppContext} from './AppContext'
 import {Sidebar, SidebarButton, SidebarFlashingButton} from './Sidebar'
+import {SettingsDialog} from './SettingsDialog'
 import {ActionIntent} from '@/shared/types'
 import {system} from '@/services/client'
 import {queryKeys} from '@/services/queryKeys'
@@ -59,6 +60,7 @@ function AppShell() {
           </Suspense>
         </main>
       </div>
+      <SettingsDialog/>
     </AppContext.Provider>
   )
 }
