@@ -165,6 +165,7 @@ class OpportunityDAO(VersionedEntityDAO[Opportunity]):
             started_on=r.get("started_on"),
             completed_on=r.get("completed_on"),
             closed_on=r.get("closed_on"),
+            archive_reason=r.get("archive_reason"),
             organization_name=r.get("organization_name"),
             parent_id=r.get("parent_id"),
             # Job
@@ -207,6 +208,7 @@ class OpportunityDAO(VersionedEntityDAO[Opportunity]):
             ("started_on", version.started_on.isoformat() if version.started_on else None),
             ("completed_on", version.completed_on.isoformat() if version.completed_on else None),
             ("closed_on", version.closed_on.isoformat() if version.closed_on else None),
+            ("archive_reason", version.archive_reason),
             # job
             ("job_role", version.job_role),
             ("job_level", version.job_level),

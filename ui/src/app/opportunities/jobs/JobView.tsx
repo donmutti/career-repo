@@ -18,6 +18,7 @@ import {CommentRow} from '@/app/opportunities/CommentRow'
 import {AttachmentRow} from '@/app/opportunities/AttachmentRow'
 import {SimilarOpportunityRow} from '@/app/opportunities/SimilarOpportunityRow'
 import {MergeIntoDialog} from '@/app/opportunities/MergeIntoDialog'
+import {ReasonDialog} from '@/app/inbox/ReasonDialog'
 import {CompensationDialog} from './CompensationDialog'
 import {ScoreBadge} from '@/shared/controls/buttons/ScoreBadge'
 import {Attachment, Comment, OpportunitySimilarity, STATUS_GROUPS} from '@/app/opportunities/OpportunityTypes'
@@ -42,6 +43,7 @@ export function JobView({opportunityId}: JobViewProps) {
   const [scoreDialogOpen, setScoreDialogOpen] = useState(false)
   const [clearUrlDialogOpen, setClearUrlDialogOpen] = useState(false)
   const [compensationDialogOpen, setCompensationDialogOpen] = useState(false)
+  const [archiveReasonOpen, setArchiveReasonOpen] = useState(false)
 
   const {
     opportunity,
@@ -134,7 +136,13 @@ export function JobView({opportunityId}: JobViewProps) {
         <Flow
           steps={STATUS_GROUPS}
           value={activeVersion.status}
-          onChange={(key) => patch({status: key})}
+          onChange={(key) => {
+            if (key === 'closed') {
+              setArchiveReasonOpen(true)
+            } else {
+              patch({status: key})
+            }
+          }}
         />
 
         {/* Evaluation + Score */}
@@ -395,6 +403,14 @@ export function JobView({opportunityId}: JobViewProps) {
         payCurrency={activeVersion.job_pay_currency}
         payPeriod={activeVersion.job_pay_period}
         onSubmit={(data) => { setCompensation(data); setCompensationDialogOpen(false) }}
+      />
+
+      <ReasonDialog
+        open={archiveReasonOpen}
+        onOpenChange={setArchiveReasonOpen}
+        title="Why archiving?"
+        submitLabel="Archive"
+        onSubmit={(reason) => patch({status: 'closed', archive_reason: reason ?? 'Not for me'})}
       />
 
       {/* Delete dialog */}

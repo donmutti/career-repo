@@ -156,6 +156,7 @@ Version fields:
 - started_on: date (optional)
 - completed_on: date (optional)
 - closed_on: date (optional)
+- archive_reason: string (optional) — reason provided when archiving; set when status changes to `closed`
 
 Job-specific fields:
 
@@ -540,6 +541,7 @@ Versioned entities: two-table pattern — `<entity>` holds identity table (`id`,
 - started_on TEXT
 - completed_on TEXT
 - closed_on TEXT
+- archive_reason TEXT
 - job_role TEXT
 - job_level TEXT
 - job_contract_type TEXT
@@ -757,6 +759,7 @@ OpportunityVersion (EntityVersion) — flat layout, all type-specific fields opt
 - started_on: date (optional)
 - completed_on: date (optional)
 - closed_on: date (optional)
+- archive_reason: str (optional)
 - organization_name: str (optional)
 - parent_id: str (optional)
 - job_role: str (optional)
@@ -1044,7 +1047,7 @@ All endpoints prefixed with `/api`. Source lives in `api/routers/`.
 - `GET /opportunities` — lists all opportunities
 - `POST /opportunities` — creates opportunity; returns existing if URL already present
 - `GET /opportunities/{id}` — returns opportunity; 404 if not found
-- `PATCH /opportunities/{id}` — creates new version with updated fields
+- `PATCH /opportunities/{id}` — creates new version with updated fields; when status changes to `closed` and `archive_reason` is provided, records the reason via `DeclineReasonDAO.record()` and writes a note `"Archived: {reason}"` to the opportunity
 - `DELETE /opportunities/{id}` — deletes opportunity; 204
 - `GET /opportunities/{id}/history` — returns version history
 - `POST /opportunities/{id}/source` — AI sourcing: fetches job details from the web and scores against profile; runs in background; 202
@@ -1415,16 +1418,18 @@ ValueDialog — generic modal for collecting a single value:
 - submitLabel?: string
 - isSubmitting?: boolean
 
-ReasonDialog — modal for collecting a mandatory decline reason:
+ReasonDialog — reusable modal for collecting a mandatory reason; used for both declining email opportunities and archiving job opportunities:
 
 - open: boolean
 - onOpenChange: (v: boolean) => void
 - onSubmit: (reason: string | null) => void — called with reason text, or `null` for "Not for me"
+- title?: string (default: `"Why declining?"`)
+- submitLabel?: string (default: `"Decline"`)
 
 Behaviour:
 - Single-line text input ("Reason" label), autofocused on open; Enter submits typed reason (ignored if empty)
 - Up to 20 frequent reasons from `GET /inbox/decline-reasons` (by count desc) rendered as a scrollable vertical column of full-width `secondary` buttons; clicking submits immediately
-- Footer row: "Not for me" button (left, secondary) — submits with `null`; Cancel (secondary) + Decline (danger, disabled until input non-empty) on the right
+- Footer row: "Not for me" button (left, secondary) — submits with `null`; Cancel (secondary) + `{submitLabel}` (danger, disabled until input non-empty) on the right
 - State (typed value) cleared on close
 
 FilePreviewDialog — previews a file with download and open actions:
@@ -1778,7 +1783,7 @@ Type list pages: `JobListPage`, `ProjectListPage`, `EducationListPage`, `Network
 
 `JobView` — detail view for a Job opportunity:
 
-- Toolbar: `Flow` status stepper; scoring area (spinner + elapsed timer while sourcing; "Re-score" / "Score" button; `ScoreBadge` opens `ScoreDialog`)
+- Toolbar: `Flow` status stepper (clicking "Archived" opens `ReasonDialog` with title "Why archiving?" and submit label "Archive" instead of directly patching); scoring area (spinner + elapsed timer while sourcing; "Re-score" / "Score" button; `ScoreBadge` opens `ScoreDialog`)
 - Header: URL link with avatar, editable title (`InlineEdit`), editable organization name (`InlineEdit`); `OpportunityMenu` (kebab)
 - Pay section (if present)
 - Cover letters section: `GroupView` with "Generate cover letter" action; `ListView` of `AttachmentRow`; spinner with elapsed timer while generating
@@ -1921,6 +1926,13 @@ Source opportunity:
 - System calls `POST /opportunities/{id}/source`; Claude first mines the `description` field for details (compensation, location, contract type, etc.), then fetches the opportunity URL via `WebFetch`. If the URL is a LinkedIn job page, Claude follows the Apply button to the actual company JD page. Claude enriches all fields and scores against the user profile and work experience. The `description` field may be completely rewritten with the full JD from the fetched page.
 - System saves the updated version; `Flow` status, score badge, and fields update in the detail view.
 - Elapsed timer shown while sourcing; user can cancel.
+
+Archive opportunity:
+
+- User clicks the "Archived" step in the `Flow` status stepper; `ReasonDialog` opens (same component and shared `DeclineReason` pool as email opportunity decline).
+- User provides a reason (typed, quick-pick, or "Not for me"). On submit: frontend calls `PATCH /opportunities/{id}` with `{status: "closed", archive_reason: "<reason>"}`.
+- API creates a new version with status `closed` and `archive_reason` set; calls `DeclineReasonDAO.record()` with the reason; writes a note `"Archived: {reason}"` dated now.
+- Frontend patch mutation invalidates opportunities, opportunity, and opportunityComments queries — note appears immediately without page refresh.
 
 Generate cover letter (Job-specific):
 

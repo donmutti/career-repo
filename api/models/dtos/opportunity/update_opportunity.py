@@ -13,6 +13,7 @@ class UpdateOpportunityRequestDto(BaseModel):
     started_on: Optional[str] = None
     completed_on: Optional[str] = None
     closed_on: Optional[str] = None
+    archive_reason: Optional[str] = None
     organization_name: Optional[str] = None
     parent_id: Optional[str] = None
     # Job-specific

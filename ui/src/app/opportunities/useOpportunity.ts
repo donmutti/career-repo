@@ -105,6 +105,7 @@ export function useOpportunity(opportunityId: string, options: UseOpportunityOpt
     onSuccess: () => {
       queryClient.invalidateQueries({queryKey: queryKeys.opportunity(opportunityId)})
       queryClient.invalidateQueries({queryKey: queryKeys.opportunities})
+      queryClient.invalidateQueries({queryKey: queryKeys.opportunityComments(opportunityId)})
     },
   })
 

@@ -12,7 +12,9 @@ from ...db import (
     OpportunityDAO,
     CommentDAO, AttachmentDAO,
     OpportunityEmbeddingDAO, OpportunitySimilarityDAO,
+    DeclineReasonDAO,
 )
+from ...db.daos.inbox.decline_reason_dao import NOT_FOR_ME_ID
 from ...models import (
     Opportunity, OpportunityVersion, OpportunityStatus, OpportunityType,
     OpportunitySimilarity,
@@ -34,6 +36,7 @@ comment_dao = CommentDAO()
 attach_dao = AttachmentDAO()
 embedding_dao = OpportunityEmbeddingDAO()
 similarity_dao = OpportunitySimilarityDAO()
+decline_reason_dao = DeclineReasonDAO()
 files = FileService(ROOT / get_attachment_path())
 opp_service = OpportunityService()
 
@@ -128,7 +131,17 @@ def update_opportunity(opportunity_id: str, request: UpdateOpportunityRequestDto
     enriched = opportunity.model_copy(update={
         "active_version": opportunity.active_version.model_copy(update=typed)
     })
-    return opp_dao.update(opportunity_id, enriched.active_version)
+    result = opp_dao.update(opportunity_id, enriched.active_version)
+    # On archive: record reason and write note
+    if typed.get("status") == OpportunityStatus.CLOSED:
+        archive_reason = request.archive_reason
+        not_for_me = decline_reason_dao.get(NOT_FOR_ME_ID)
+        not_for_me_text = not_for_me.text if not_for_me else "Not for me"
+        is_not_for_me = not archive_reason or archive_reason == not_for_me_text
+        decline_reason_dao.record(None if is_not_for_me else archive_reason)
+        note = f"Archived: {archive_reason or not_for_me_text}"
+        comment_dao.create(opportunity_id, CommentVersion(body=note))
+    return result
 
 
 class SetCompensationRequest(BaseModel):

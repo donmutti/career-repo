@@ -12,9 +12,11 @@ interface ReasonDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSubmit: (reason: string | null) => void
+  title?: string
+  submitLabel?: string
 }
 
-export function ReasonDialog({open, onOpenChange, onSubmit}: ReasonDialogProps) {
+export function ReasonDialog({open, onOpenChange, onSubmit, title = 'Why declining?', submitLabel = 'Decline'}: ReasonDialogProps) {
   const [value, setValue] = useState('')
 
   const {data} = useQuery({
@@ -44,7 +46,7 @@ export function ReasonDialog({open, onOpenChange, onSubmit}: ReasonDialogProps) 
         if (!o) setValue('')
         onOpenChange(o)
       }}
-      title="Why declining?"
+      title={title}
       width="w-[480px]"
     >
       <div className="px-5 py-4 flex flex-col gap-4">
@@ -78,7 +80,7 @@ export function ReasonDialog({open, onOpenChange, onSubmit}: ReasonDialogProps) 
               <button className="secondary">Cancel</button>
             </Dialog.Close>
             <button className="danger" onClick={() => value.trim() && submit(value.trim())} disabled={!value.trim()}>
-              Decline
+              {submitLabel}
             </button>
           </div>
         </div>

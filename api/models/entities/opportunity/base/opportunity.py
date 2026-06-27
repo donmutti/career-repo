@@ -101,6 +101,7 @@ class OpportunityVersion(EntityVersion):
     started_on: Optional[date] = None
     completed_on: Optional[date] = None
     closed_on: Optional[date] = None
+    archive_reason: Optional[str] = None
     organization_name: Optional[str] = None
     parent_id: Optional[str] = None
     # Job-specific fields
