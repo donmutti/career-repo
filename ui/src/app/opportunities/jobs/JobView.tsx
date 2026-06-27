@@ -20,7 +20,7 @@ import {SimilarOpportunityRow} from '@/app/opportunities/SimilarOpportunityRow'
 import {MergeIntoDialog} from '@/app/opportunities/MergeIntoDialog'
 import {ReasonDialog} from '@/app/inbox/ReasonDialog'
 import {CompensationDialog} from './CompensationDialog'
-import {WorkModeDialog, WORK_MODE_LABELS} from './WorkModeDialog'
+import {WORK_MODE_LABELS, WorkModeDialog} from './WorkModeDialog'
 import {ScoreBadge} from '@/shared/controls/buttons/ScoreBadge'
 import {Attachment, Comment, OpportunitySimilarity, STATUS_GROUPS} from '@/app/opportunities/OpportunityTypes'
 import {useOpportunities} from '@/app/opportunities/useOpportunities'
@@ -122,10 +122,10 @@ export function JobView({opportunityId}: JobViewProps) {
   const activeVersion = opportunity.active_version
 
   const pay = formatPay(
-    activeVersion.job_pay_min,
-    activeVersion.job_pay_max,
-    activeVersion.job_pay_currency,
-    activeVersion.job_pay_period
+    activeVersion.job_pay_min ?? undefined,
+    activeVersion.job_pay_max ?? undefined,
+    activeVersion.job_pay_currency ?? undefined,
+    activeVersion.job_pay_period ?? undefined
   )
   const commentList = (comments as { items?: Comment[] })?.items ?? (Array.isArray(comments) ? comments as Comment[] : [])
   const attachmentList = (attachments as { items?: Attachment[] })?.items ?? (Array.isArray(attachments) ? attachments as Attachment[] : [])
@@ -176,20 +176,23 @@ export function JobView({opportunityId}: JobViewProps) {
       <div className="flex-1 overflow-y-auto py-5 flex flex-col gap-3">
 
         {/* Header */}
-        <div className="flex items-start px-5 pt-1 pb-5 border-b border-frame-lighter pr-6">
+        <div className="flex items-start px-5 pt-0 pb-4 border-b border-frame-lighter pr-6">
           <div className="flex flex-col flex-1 min-w-0">
             <div
               className="h-9 flex items-center rounded hoverable hoverable-text cursor-pointer"
-              onClick={() => { setUrlInput(opportunity.url ?? ''); setSetUrlDialogOpen(true) }}
+              onClick={() => {
+                setUrlInput(opportunity.url ?? '');
+                setSetUrlDialogOpen(true)
+              }}
             >
               {opportunity.url
                 ? <a href={opportunity.url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="flex items-center gap-1.5 px-3 text-intent-info one-liner">
-                    {opportunity.avatar_url
-                      ? <img src={opportunity.avatar_url} alt="" className="w-5 h-5 rounded object-contain shrink-0" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}/>
-                      : <ExternalLink size={13} className="shrink-0"/>
-                    }
-                    {opportunity.url}
-                  </a>
+                  {opportunity.avatar_url
+                    ? <img src={opportunity.avatar_url} alt="" className="w-5 h-5 rounded object-contain shrink-0" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}/>
+                    : <ExternalLink size={13} className="shrink-0"/>
+                  }
+                  {opportunity.url}
+                </a>
                 : <span className="px-3 text-label-medium">URL</span>
               }
             </div>
@@ -221,9 +224,15 @@ export function JobView({opportunityId}: JobViewProps) {
               isGeneratingCoverLetter={isGeneratingCoverLetter}
               onSource={() => source()}
               onGenerateCoverLetter={() => generateCoverLetter()}
-              onSetUrl={() => { setUrlInput(opportunity.url ?? ''); setSetUrlDialogOpen(true) }}
+              onSetUrl={() => {
+                setUrlInput(opportunity.url ?? '');
+                setSetUrlDialogOpen(true)
+              }}
               onClearUrl={() => setClearUrlDialogOpen(true)}
-              onSetLocation={() => { setLocationInput(activeVersion.location ?? ''); setLocationDialogOpen(true) }}
+              onSetLocation={() => {
+                setLocationInput(activeVersion.location ?? '');
+                setLocationDialogOpen(true)
+              }}
               onSetWorkMode={() => setWorkModeDialogOpen(true)}
               onSetCompensation={() => setCompensationDialogOpen(true)}
               onMergeInto={() => setMergeIntoDialogOpen(true)}
@@ -232,11 +241,14 @@ export function JobView({opportunityId}: JobViewProps) {
           </div>
         </div>
 
-        <div className="flex items-center justify-between px-6 pt-1 pb-5 border-b border-frame-lighter">
+        <div className="flex items-center justify-between px-6 pt-1 pb-4 border-b border-frame-lighter">
           <div className="flex items-center gap-1">
             <button
               className={`flex items-center gap-1 p-2 one-liner rounded hoverable hoverable-text ${activeVersion.location ? `font-medium ${isChanging ? 'text-label-medium' : ''}` : 'text-label-medium'}`}
-              onClick={() => { setLocationInput(activeVersion.location ?? ''); setLocationDialogOpen(true) }}
+              onClick={() => {
+                setLocationInput(activeVersion.location ?? '');
+                setLocationDialogOpen(true)
+              }}
             >
               <MapPin size={13} className="shrink-0"/>
               {activeVersion.location || 'Location'}
@@ -388,7 +400,10 @@ export function JobView({opportunityId}: JobViewProps) {
         title="Set URL"
         submitLabel="Save"
         isSubmitting={isSettingUrl}
-        onSubmit={() => { setUrl(urlInput); setSetUrlDialogOpen(false) }}
+        onSubmit={() => {
+          setUrl(urlInput);
+          setSetUrlDialogOpen(false)
+        }}
       >
         <div className="flex flex-col gap-1.5">
           <label>URL</label>
@@ -398,7 +413,12 @@ export function JobView({opportunityId}: JobViewProps) {
             placeholder="https://..."
             value={urlInput}
             onChange={e => setUrlInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') { setUrl(urlInput); setSetUrlDialogOpen(false) } }}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                setUrl(urlInput);
+                setSetUrlDialogOpen(false)
+              }
+            }}
             className="w-full"
           />
         </div>
@@ -409,7 +429,10 @@ export function JobView({opportunityId}: JobViewProps) {
         onOpenChange={setLocationDialogOpen}
         title="Set location"
         submitLabel="Save"
-        onSubmit={() => { patch({location: locationInput}); setLocationDialogOpen(false) }}
+        onSubmit={() => {
+          patch({location: locationInput});
+          setLocationDialogOpen(false)
+        }}
       >
         <div className="flex flex-col gap-1.5">
           <label>Location</label>
@@ -419,7 +442,12 @@ export function JobView({opportunityId}: JobViewProps) {
             placeholder="e.g. Luxembourg, Remote"
             value={locationInput}
             onChange={e => setLocationInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') { patch({location: locationInput}); setLocationDialogOpen(false) } }}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                patch({location: locationInput});
+                setLocationDialogOpen(false)
+              }
+            }}
             className="w-full"
           />
         </div>
@@ -429,7 +457,10 @@ export function JobView({opportunityId}: JobViewProps) {
         open={workModeDialogOpen}
         onOpenChange={setWorkModeDialogOpen}
         value={activeVersion.job_work_mode}
-        onSubmit={(v) => { patch({job_work_mode: v}); setWorkModeDialogOpen(false) }}
+        onSubmit={(v) => {
+          patch({job_work_mode: v});
+          setWorkModeDialogOpen(false)
+        }}
       />
 
       {/* Merge into dialog */}
@@ -450,7 +481,10 @@ export function JobView({opportunityId}: JobViewProps) {
         title="Clear URL"
         body="This will remove the URL from this opportunity."
         primaryActionLabel="Clear URL"
-        onConfirm={() => { setUrl(''); setClearUrlDialogOpen(false) }}
+        onConfirm={() => {
+          setUrl('');
+          setClearUrlDialogOpen(false)
+        }}
         isSubmitting={isSettingUrl}
       />
 
@@ -462,7 +496,10 @@ export function JobView({opportunityId}: JobViewProps) {
         payMax={activeVersion.job_pay_max}
         payCurrency={activeVersion.job_pay_currency}
         payPeriod={activeVersion.job_pay_period}
-        onSubmit={(data) => { setCompensation(data); setCompensationDialogOpen(false) }}
+        onSubmit={(data) => {
+          setCompensation(data);
+          setCompensationDialogOpen(false)
+        }}
       />
 
       <ReasonDialog
