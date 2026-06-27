@@ -29,7 +29,7 @@ export default function JobListPage() {
   const [groupByMode, setGroupByMode] = useState<JobGroupByMode>(() => LocalStorageUtils.get('pane.jobs.groupBy', 'status'))
   const [scoreDialogOpportunity, setScoreDialogOpportunity] = useState<Opportunity | null>(null)
 
-  const {timeWindow, setActiveType} = useOutletContext<OpportunityContext>()
+  const {timeWindow, setActiveType, statusFilter} = useOutletContext<OpportunityContext>()
 
   useEffect(() => {
     setActiveType('job')
@@ -43,6 +43,7 @@ export default function JobListPage() {
   })
 
   const jobs = filterByTimeWindow(opportunities.filter(o => o.type === 'job'), timeWindow)
+    .filter(o => !statusFilter || o.active_version.status === statusFilter)
 
   const byStatus = jobs.reduce<Record<string, Opportunity[]>>((acc, o) => {
     ;(acc[o.active_version.status] ??= []).push(o)

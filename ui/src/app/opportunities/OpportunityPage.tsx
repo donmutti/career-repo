@@ -1,6 +1,6 @@
 import {useState, useMemo} from 'react'
 import {LocalStorageUtils} from '@/shared/utils/LocalStorageUtils'
-import {OPP_TYPE_LABELS, OPP_TYPES} from '@/app/opportunities/OpportunityTypes'
+import {OPP_TYPE_LABELS, OPP_TYPES, STATUS_GROUPS} from '@/app/opportunities/OpportunityTypes'
 import {filterByTimeWindow, TIME_WINDOWS} from '@/shared/controls/views/TimeWindowTypes'
 import {Outlet, useNavigate} from 'react-router'
 import {Panes, PaneBody, PaneHeader, PaneResizeHandle} from '@/shared/controls/panes/Panes'
@@ -8,6 +8,7 @@ import {ListView} from '@/shared/controls/views/ListView'
 import {OpportunityTypeRow} from '@/app/opportunities/OpportunityTypeRow'
 import {TimeWindowRow} from '@/shared/controls/views/TimeWindowRow'
 import {useOpportunities} from './useOpportunities'
+import {formatCount} from '@/shared/utils/FormatUtils'
 
 const TYPE_ROUTES: Record<string, string> = {
   job: 'jobs',
@@ -21,6 +22,8 @@ export type OpportunityContext = {
   timeWindow: string
   setTimeWindow: (w: string) => void
   setActiveType: (type: string | null) => void
+  statusFilter: string | null
+  setStatusFilter: (s: string | null) => void
 }
 
 export default function OpportunityPage() {
@@ -28,6 +31,7 @@ export default function OpportunityPage() {
   const [navWidth, setNavWidth] = useState(() => LocalStorageUtils.get('pane.opportunities.filter', 300))
   const [timeWindow, setTimeWindow] = useState(() => LocalStorageUtils.get('pane.opportunities.timeWindow', 'all'))
   const [activeType, setActiveType] = useState<string | null>(null)
+  const [statusFilter, setStatusFilter] = useState<string | null>(() => LocalStorageUtils.get('pane.opportunities.statusFilter', null))
 
   const {opportunities} = useOpportunities()
 
@@ -51,6 +55,14 @@ export default function OpportunityPage() {
       return acc
     }, {})
   }, [opportunities, activeType])
+
+  const statusCounts = useMemo(() => {
+    const base = filterByTimeWindow(activeType ? opportunities.filter(o => o.type === activeType) : opportunities, timeWindow)
+    return STATUS_GROUPS.reduce<Record<string, number>>((acc, s) => {
+      acc[s.key] = base.filter(o => o.active_version.status === s.key).length
+      return acc
+    }, {})
+  }, [opportunities, activeType, timeWindow])
 
   return (
     <Panes className="bg-panel-white">
@@ -90,6 +102,26 @@ export default function OpportunityPage() {
                 />
               )}
             />
+            <div className="border-t border-frame-lighter mx-2 my-2"/>
+            <ListView
+              items={STATUS_GROUPS}
+              getItemKey={(s) => s.key}
+              renderItem={(s) => (
+                <button
+                  key={s.key}
+                  onClick={() => {
+                    const next = statusFilter === s.key ? null : s.key
+                    setStatusFilter(next)
+                    LocalStorageUtils.set('pane.opportunities.statusFilter', next)
+                  }}
+                  className={`flex items-center gap-2 w-full px-3 py-2 text-left ${statusFilter === s.key ? 'text-action hovered' : 'text-label-dark hoverable'}`}
+                >
+                  <s.icon size={16} className="shrink-0"/>
+                  <span className="flex-1 text-base text-label-darker">{s.label}</span>
+                  <span className="text-sm text-label-medium">{formatCount(statusCounts[s.key] ?? 0)}</span>
+                </button>
+              )}
+            />
           </div>
         </PaneBody>
       </div>
@@ -100,7 +132,7 @@ export default function OpportunityPage() {
         return n
       })}/>
 
-      <Outlet context={{timeWindow, setTimeWindow, setActiveType} satisfies OpportunityContext}/>
+      <Outlet context={{timeWindow, setTimeWindow, setActiveType, statusFilter, setStatusFilter} satisfies OpportunityContext}/>
     </Panes>
   )
 }

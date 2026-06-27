@@ -1,5 +1,5 @@
 import {ReactNode} from 'react'
-import {BookOpen, BriefcaseBusiness, Building2, CalendarDays, Coins, Folder, GraduationCap, Hash, LucideIcon, Signpost, SquareUserRound, Users} from 'lucide-react'
+import {Archive, BookOpen, BriefcaseBusiness, Building2, CalendarDays, CheckCircle, Coins, Folder, GraduationCap, Hash, Inbox, LucideIcon, Play, Signpost, SquareUserRound, Star, Users} from 'lucide-react'
 import {dateBucketKey, formatDateBucketKey} from '@/shared/utils/FormatUtils'
 
 export interface OpportunityVersion {
@@ -69,12 +69,12 @@ export const STATUS_LABELS: Record<string, string> = {
   closed: 'Archived',
 }
 
-export const STATUS_GROUPS = [
-  {key: 'opened', label: STATUS_LABELS.opened},
-  {key: 'shortlisted', label: STATUS_LABELS.shortlisted},
-  {key: 'started', label: STATUS_LABELS.started},
-  {key: 'completed', label: STATUS_LABELS.completed},
-  {key: 'closed', label: STATUS_LABELS.closed},
+export const STATUS_GROUPS: {key: string; label: string; icon: LucideIcon}[] = [
+  {key: 'opened', label: STATUS_LABELS.opened, icon: Inbox},
+  {key: 'shortlisted', label: STATUS_LABELS.shortlisted, icon: Star},
+  {key: 'started', label: STATUS_LABELS.started, icon: Play},
+  {key: 'completed', label: STATUS_LABELS.completed, icon: CheckCircle},
+  {key: 'closed', label: STATUS_LABELS.closed, icon: Archive},
 ]
 
 export type JobGroupByMode = 'status' | 'organization_name' | 'score' | 'title' | 'compensation' | 'date'
