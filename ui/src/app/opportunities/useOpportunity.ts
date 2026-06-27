@@ -83,6 +83,7 @@ export function useOpportunity(opportunityId: string, options: UseOpportunityOpt
   const prevHasActiveRunRef = useRef(false)
   useEffect(() => {
     if (prevHasActiveRunRef.current && !isChanging) {
+      queryClient.invalidateQueries({queryKey: queryKeys.opportunity(opportunityId)})
       queryClient.invalidateQueries({queryKey: queryKeys.opportunities})
       queryClient.invalidateQueries({queryKey: queryKeys.opportunityAttachments(opportunityId)})
     }
