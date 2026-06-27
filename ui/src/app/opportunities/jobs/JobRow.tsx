@@ -41,20 +41,20 @@ export function JobRow({opportunity: o, navigateTo, selected, isChanging, onScor
         <div className={`one-liner text-base ${isChanging ? 'text-label-medium' : 'text-label-darker'}`}>{title || o.url}</div>
       </div>
       <div className="flex items-center gap-1.5 shrink-0 min-w-6">
-        {isChanging ? <Spinner/> : (
-          <>
-            <IconButton
-              label="Re-score"
-              icon={RefreshCw}
-              tooltipPosition="left"
-              onClick={(e) => { e.stopPropagation(); onRescore?.() }}
-              className="invisible group-hover:visible"
-            />
-            <button onClick={(e) => { e.stopPropagation(); onScoreBadgeClick?.() }}>
-              <ScoreBadge score={score} size="sm"/>
-            </button>
-          </>
+        {isChanging ? (
+          <div className="w-7 h-7 flex items-center justify-center shrink-0"><Spinner/></div>
+        ) : (
+          <IconButton
+            label="Re-score"
+            icon={RefreshCw}
+            tooltipPosition="left"
+            onClick={(e) => { e.stopPropagation(); onRescore?.() }}
+            className="invisible group-hover:visible"
+          />
         )}
+        <button onClick={(e) => { e.stopPropagation(); onScoreBadgeClick?.() }} disabled={isChanging}>
+          <ScoreBadge score={score} size="sm"/>
+        </button>
       </div>
     </div>
   )
