@@ -962,7 +962,7 @@ OpportunityEmbeddingDAO (plain class, not BaseEntityDAO):
 
 - `upsert(opportunity_id, vector: list[float]): None` — insert or replace embedding; vector packed as float32 BLOB
 - `get(opportunity_id): list[float] | None` — returns unpacked vector
-- `find_similar(opportunity_id, top_k=5, min_similarity=0.5): list[tuple[str, float]]` — returns `[(similar_id, similarity), ...]`; excludes the query opportunity and any pairs already dismissed (dismissed_at IS NOT NULL); uses `sqlite-vec` cosine distance
+- `find_similar(opportunity_id, top_k=5, min_similarity=0.85): list[tuple[str, float]]` — returns `[(similar_id, similarity), ...]`; excludes the query opportunity and any pairs already dismissed (dismissed_at IS NOT NULL); uses `sqlite-vec` cosine distance
 
 OpportunitySimilarityDAO (plain class, not BaseEntityDAO):
 

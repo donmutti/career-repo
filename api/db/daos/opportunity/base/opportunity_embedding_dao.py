@@ -50,7 +50,7 @@ class OpportunityEmbeddingDAO:
         self,
         opportunity_id: str,
         top_k: int = 5,
-        min_similarity: float = 0.5,
+        min_similarity: float = 0.85,
     ) -> list[tuple[str, float]]:
         """Return [(similar_id, similarity), ...] excluding already-dismissed pairs."""
         cursor = self._conn.execute(
