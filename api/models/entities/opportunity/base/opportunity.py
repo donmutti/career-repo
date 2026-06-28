@@ -11,10 +11,8 @@ from ...base import EntityVersion, VersionedEntity
 
 class OpportunityStatus(str, Enum):
     OPENED = "opened"
-    SHORTLISTED = "shortlisted"
     STARTED = "started"
     COMPLETED = "completed"
-    CLOSED = "closed"
 
 
 class OpportunityType(str, Enum):
@@ -101,7 +99,8 @@ class OpportunityVersion(EntityVersion):
     started_on: Optional[date] = None
     completed_on: Optional[date] = None
     closed_on: Optional[date] = None
-    archive_reason: Optional[str] = None
+    close_reason: Optional[str] = None
+    is_starred: bool = False
     organization_name: Optional[str] = None
     parent_id: Optional[str] = None
     # Job-specific fields

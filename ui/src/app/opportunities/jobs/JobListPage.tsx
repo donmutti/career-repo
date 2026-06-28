@@ -42,8 +42,19 @@ export default function JobListPage() {
     onSuccess: () => queryClient.invalidateQueries({queryKey: queryKeys.opportunities}),
   })
 
+  const toggleStarMutation = useMutation({
+    mutationFn: ({id, is_starred}: {id: string; is_starred: boolean}) => opApi.patch(id, {is_starred}),
+    onSuccess: () => queryClient.invalidateQueries({queryKey: queryKeys.opportunities}),
+  })
+
   const jobs = filterByTimeWindow(opportunities.filter(o => o.type === 'job'), timeWindow)
-    .filter(o => !statusFilter || o.active_version.status === statusFilter)
+    .filter(o => {
+      const isArchived = o.active_version.closed_on != null
+      if (statusFilter === 'archived') return isArchived
+      if (statusFilter === 'starred') return o.active_version.is_starred
+      if (isArchived) return false
+      return !statusFilter || o.active_version.status === statusFilter
+    })
 
   const byStatus = jobs.reduce<Record<string, Opportunity[]>>((acc, o) => {
     ;(acc[o.active_version.status] ??= []).push(o)
@@ -59,10 +70,8 @@ export default function JobListPage() {
   // Groups scored by status
   const groups = [
     {key: 'started', label: STATUS_LABELS.started, count: g('started').length, items: g('started')},
-    {key: 'shortlisted', label: STATUS_LABELS.shortlisted, count: g('shortlisted').length, items: g('shortlisted')},
     {key: 'opened', label: STATUS_LABELS.opened, count: g('opened').length, items: g('opened')},
     {key: 'completed', label: STATUS_LABELS.completed, count: g('completed').length, items: g('completed')},
-    {key: 'closed', label: STATUS_LABELS.closed, count: g('closed').length, items: g('closed'), defaultCollapsed: true},
   ]
 
   return (
@@ -121,6 +130,7 @@ export default function JobListPage() {
                     isChanging={item.sourcing_started_at != null && item.sourcing_completed_at == null}
                     onScoreBadgeClick={() => setScoreDialogOpportunity(item)}
                     onRescore={() => rescoreMutation.mutate(item.id)}
+                    onToggleStar={() => toggleStarMutation.mutate({id: item.id, is_starred: !item.active_version.is_starred})}
                   />
                 )}
               />

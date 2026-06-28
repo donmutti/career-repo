@@ -134,14 +134,16 @@ def update_opportunity(opportunity_id: str, request: UpdateOpportunityRequestDto
         "active_version": opportunity.active_version.model_copy(update=typed)
     })
     result = opp_dao.update(opportunity_id, enriched.active_version)
-    # On archive: record reason and write note
-    if typed.get("status") == OpportunityStatus.CLOSED:
-        archive_reason = request.archive_reason
+    # On archive: record reason and write note (closed_on transitioning from null to a date)
+    was_archived = opportunity.active_version.closed_on is not None
+    now_archived = enriched.active_version.closed_on is not None
+    if not was_archived and now_archived:
+        close_reason = request.close_reason
         not_for_me = decline_reason_dao.get(NOT_FOR_ME_ID)
         not_for_me_text = not_for_me.text if not_for_me else "Not for me"
-        is_not_for_me = not archive_reason or archive_reason == not_for_me_text
-        decline_reason_dao.record(None if is_not_for_me else archive_reason)
-        note = f"Archived: {archive_reason or not_for_me_text}"
+        is_not_for_me = not close_reason or close_reason == not_for_me_text
+        decline_reason_dao.record(None if is_not_for_me else close_reason)
+        note = f"Archived: {close_reason or not_for_me_text}"
         comment_dao.create(opportunity_id, CommentVersion(body=note))
     return result
 

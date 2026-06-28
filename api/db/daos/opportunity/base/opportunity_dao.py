@@ -165,7 +165,8 @@ class OpportunityDAO(VersionedEntityDAO[Opportunity]):
             started_on=r.get("started_on"),
             completed_on=r.get("completed_on"),
             closed_on=r.get("closed_on"),
-            archive_reason=r.get("archive_reason"),
+            close_reason=r.get("close_reason"),
+            is_starred=bool(r["is_starred"]) if r.get("is_starred") is not None else False,
             organization_name=r.get("organization_name"),
             parent_id=r.get("parent_id"),
             # Job
@@ -196,6 +197,7 @@ class OpportunityDAO(VersionedEntityDAO[Opportunity]):
             "status": version.status.value,
             "title": version.title,
             "opened_on": version.opened_on.isoformat(),
+            "is_starred": int(version.is_starred),
         }
         _opt_fields = [
             ("description", version.description),
@@ -208,7 +210,7 @@ class OpportunityDAO(VersionedEntityDAO[Opportunity]):
             ("started_on", version.started_on.isoformat() if version.started_on else None),
             ("completed_on", version.completed_on.isoformat() if version.completed_on else None),
             ("closed_on", version.closed_on.isoformat() if version.closed_on else None),
-            ("archive_reason", version.archive_reason),
+            ("close_reason", version.close_reason),
             # job
             ("job_role", version.job_role),
             ("job_level", version.job_level),

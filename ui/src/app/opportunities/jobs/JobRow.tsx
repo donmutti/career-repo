@@ -2,7 +2,7 @@ import {useState} from 'react'
 import {useNavigate} from 'react-router'
 import {ScoreBadge} from '@/shared/controls/buttons/ScoreBadge'
 import {Spinner} from '@/shared/controls/Spinner'
-import {Building2, RefreshCw} from 'lucide-react'
+import {Building2, RefreshCw, Star} from 'lucide-react'
 import {Opportunity} from '@/app/opportunities/OpportunityTypes'
 import {IconButton} from '@/shared/controls/buttons/IconButton'
 
@@ -13,6 +13,7 @@ interface JobRowProps {
   isChanging?: boolean
   onScoreBadgeClick?: () => void
   onRescore?: () => void
+  onToggleStar?: () => void
 }
 
 function CompanyAvatar({avatarUrl}: { avatarUrl?: string | null }) {
@@ -27,15 +28,22 @@ function CompanyAvatar({avatarUrl}: { avatarUrl?: string | null }) {
   )
 }
 
-export function JobRow({opportunity: o, navigateTo, selected, isChanging, onScoreBadgeClick, onRescore}: JobRowProps) {
+export function JobRow({opportunity: o, navigateTo, selected, isChanging, onScoreBadgeClick, onRescore, onToggleStar}: JobRowProps) {
   const navigate = useNavigate()
-  const {title, score, organization_name, status} = o.active_version
+  const {title, score, organization_name, is_starred} = o.active_version
 
   return (
     <div
       onClick={() => navigate(navigateTo)}
       className={`group flex items-center gap-2 pl-3 w-full text-left px-3 h-[38px] cursor-pointer ${selected ? 'hovered' : 'hoverable'}`}
     >
+      <button
+        onClick={(e) => { e.stopPropagation(); onToggleStar?.() }}
+        aria-label={is_starred ? 'Unstar' : 'Star'}
+        className="shrink-0 w-5 h-5 flex items-center justify-center cursor-pointer hoverable rounded"
+      >
+        <Star size={14} className={is_starred ? 'fill-current text-action' : 'text-label-light'}/>
+      </button>
       <CompanyAvatar avatarUrl={o.avatar_url}/>
       <div className="flex-1 min-w-0">
         <div className={`one-liner text-base ${isChanging ? 'text-label-medium' : 'text-label-darker'}`}>
