@@ -28,7 +28,7 @@ export function Flow({steps, value, onChange, direction = 'horizontal', disabled
               onClick={() => onChange(step.key)}
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm font-medium transition-colors
                 ${isActive
-                  ? 'bg-action text-action-text'
+                  ? 'bg-panel-darkest text-label-white'
                   : 'text-label-dark hoverable hoverable-text'
                 }
                 ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}

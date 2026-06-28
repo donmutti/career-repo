@@ -193,7 +193,7 @@ export function JobView({opportunityId}: JobViewProps) {
                   }
                   {opportunity.url}
                 </a>
-                : <span className="px-3 text-label-medium">URL</span>
+                : <span className="px-3 text-label-medium/70">URL</span>
               }
             </div>
             <InlineEdit
@@ -208,7 +208,7 @@ export function JobView({opportunityId}: JobViewProps) {
             <InlineEdit
               value={activeVersion.organization_name ?? ''}
               placeholder="Organization"
-              className="text-base"
+              className="text-base placeholder:text-label-medium/70"
               allowEmpty
               doubleClickToEdit
               disabled={isChanging}
@@ -244,7 +244,7 @@ export function JobView({opportunityId}: JobViewProps) {
         <div className="flex items-center justify-between px-6 pt-1 pb-4 border-b border-frame-lighter">
           <div className="flex items-center gap-1">
             <button
-              className={`flex items-center gap-1 p-2 one-liner rounded hoverable hoverable-text ${activeVersion.location ? `font-medium ${isChanging ? 'text-label-medium' : ''}` : 'text-label-medium'}`}
+              className={`flex items-center gap-1 p-2 one-liner rounded hoverable hoverable-text ${activeVersion.location ? `font-medium ${isChanging ? 'text-label-medium' : ''}` : 'text-label-medium/70'}`}
               onClick={() => {
                 setLocationInput(activeVersion.location ?? '');
                 setLocationDialogOpen(true)
@@ -254,7 +254,7 @@ export function JobView({opportunityId}: JobViewProps) {
               {activeVersion.location || 'Location'}
             </button>
             <button
-              className={`flex items-center gap-1 p-2 one-liner rounded hoverable hoverable-text ${activeVersion.job_work_mode ? `font-medium ${isChanging ? 'text-label-medium' : ''}` : 'text-label-medium'}`}
+              className={`flex items-center gap-1 p-2 one-liner rounded hoverable hoverable-text ${activeVersion.job_work_mode ? `font-medium ${isChanging ? 'text-label-medium' : ''}` : 'text-label-medium/70'}`}
               onClick={() => setWorkModeDialogOpen(true)}
             >
               <Briefcase size={13} className="shrink-0"/>
@@ -262,7 +262,7 @@ export function JobView({opportunityId}: JobViewProps) {
             </button>
           </div>
           <button
-            className={`flex items-center gap-1 p-2 w-fit rounded hoverable hoverable-text ${pay ? `font-medium ${isChanging ? 'text-label-medium' : ''}` : 'text-label-medium'}`}
+            className={`flex items-center gap-1 p-2 w-fit rounded hoverable hoverable-text ${pay ? `font-medium ${isChanging ? 'text-label-medium' : ''}` : 'text-label-medium/70'}`}
             onClick={() => setCompensationDialogOpen(true)}
           >
             <Coins size={13} className="shrink-0"/>
