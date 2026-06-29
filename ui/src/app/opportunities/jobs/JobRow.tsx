@@ -70,7 +70,7 @@ export function JobRow({opportunity: o, navigateTo, selected, isChanging, onScor
         <button onClick={(e) => {
           e.stopPropagation();
           onScoreBadgeClick?.()
-        }} disabled={isChanging}>
+        }}>
           <ScoreBadge score={score} size="sm"/>
         </button>
       </div>
