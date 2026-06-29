@@ -1,5 +1,9 @@
 """OpportunityService — AI-driven opportunity operations."""
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 from api.services.ai import AgentRunError, AgentRun, AgentName
 
 from api.db import OpportunityDAO, ProfileDAO, WorkExperienceDAO
@@ -79,6 +83,11 @@ class OpportunityService:
             organization_unit_name = sourced.pop("organization_unit_name", None)
             updates = {k: v for k, v in sourced.items() if v is not None}
             typed = _parse_version_fields(updates)
+            # Guardrail: agent should emit 0–100; if it regressed to 0–10, scale up.
+            score = typed.get("score")
+            if isinstance(score, int) and 0 < score <= 10:
+                logger.warning("score-guardrail: agent emitted %d on legacy 0–10 scale; scaling to %d", score, score * 10)
+                typed["score"] = score * 10
             current = self._opp_dao.get(opportunity_id)
             enriched = current.model_copy(update={
                 "active_version": current.active_version.model_copy(update=typed)

@@ -12,15 +12,16 @@ function getColorClass(score: number): string {
   return 'text-score-f'
 }
 
-export function ScoreBadge({score, size = 'sm'}: ScoreBadgeProps) {
+export function ScoreBadge({score: rawScore, size = 'sm'}: ScoreBadgeProps) {
   const sizeClass = size === 'sm' ? 'w-[30px] h-[22px] text-sm rounded-sm' : 'w-[32px] h-[24px] text-base rounded'
-  if (score == null) {
+  if (rawScore == null) {
     return (
       <span className={`inline-flex items-center justify-center font-medium text-label-medium border border-dotted border-frame-medium/70 ${sizeClass}`}>
         0.0
       </span>
     )
   }
+  const score = rawScore / 10
   const isExcellent = score >= 9.0
   const borderClass = 'border border-current'
   const fillClass = isExcellent ? 'bg-score-a text-score-text border-score-a' : ''

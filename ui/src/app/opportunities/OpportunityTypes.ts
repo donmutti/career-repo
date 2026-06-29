@@ -219,7 +219,7 @@ export const JOB_GROUP_BY_OPTIONS: Record<JobGroupByMode, JobGroupByOption> = {
   score: {
     label: 'Score',
     icon: Hash,
-    groupBy: (item) => getScoreGrade(item.active_version.score),
+    groupBy: (item) => getScoreGrade(item.active_version.score != null ? item.active_version.score / 10 : item.active_version.score),
     groupByKeys: SCORE_GRADE_KEYS,
     groupSortKey: (grade) => SCORE_GRADE_ORDER[grade] ?? 99,
     groupLabelDetail: getScoreGradeRange,

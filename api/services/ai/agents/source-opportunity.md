@@ -30,14 +30,15 @@ Use **only** these exact string values for enum fields:
 ## Guidelines
 
 - Include only fields that have been verified or enriched; omit fields you have no information about
-- Score opportunities on a scale of 0-10 based on alignment between the job description and the user's profile and work history. Use this calibration:
-  - **10** — 95%+ of required skills/experience match; role is an obvious fit with no meaningful gaps
-  - **9** — ~90% match; one minor gap that would not block hiring
-  - **8** — ~80% match; strong candidate, one or two gaps that are bridgeable
-  - **7** — ~70% match; competitive candidate but with a few notable gaps
-  - **6** — ~60% match; viable but would require meaningful upskilling or context-building
-  - **5** — ~50% match; roughly half the requirements are met
-  - **4 or below** — significant mismatch in skills, seniority, or domain
+- Score opportunities on an integer scale of **0-100** (represents 0.0–10.0 in the user-facing UI; emit `73` for 7.3, `45` for 4.5, etc. — never emit a value like `8` meaning "8 out of 10"). Use this calibration (display value shown in parens):
+  - **95–100** (9.5–10.0) — 95%+ of required skills/experience match; role is an obvious fit with no meaningful gaps
+  - **85–94** (8.5–9.4) — ~90% match; at most a minor gap that would not block hiring
+  - **75–84** (7.5–8.4) — ~80% match; strong candidate, one or two gaps that are bridgeable
+  - **65–74** (6.5–7.4) — ~70% match; competitive candidate but with a few notable gaps
+  - **55–64** (5.5–6.4) — ~60% match; viable but would require meaningful upskilling or context-building
+  - **45–54** (4.5–5.4) — ~50% match; roughly half the requirements are met
+  - **0–44** (0.0–4.4) — significant mismatch in skills, seniority, or domain
+- Use the full 0–100 range to express nuance — two jobs that both feel like "7" should land at distinguishable values (e.g. 71 vs 76) based on which specific requirements are stronger matches.
 - Be honest and calibrated: neither inflate scores to give false hope nor deflate them to discourage. The score must reflect the actual fit as objectively as possible — this is a career tool and the user is counting on it for real decisions
 - Technologies listed in `skills` count as 100% matched against JD requirements — do not discount them
 - Always include `score_explanation`: a JSON string containing `{"pros": [...], "cons": [...]}` — both keys are required and must be present even if empty (use `[]`, never omit). Up to 5 items each, sorted from most to least important. Address the user directly in second person — write "your Java background" or "is not in your skills", never "Dmitrii's background" or "the user's skills". Refer to the user as "you" / "your" throughout. Scoring must be grounded primarily in `work_experiences`: compare the JD's required skills, tech stack, seniority, and responsibilities directly against the user's actual job titles, companies, technologies, descriptions, **and `skills` field** from their work history. The `skills` field contains a curated list of technologies and tools the user has hands-on experience with — treat it as authoritative evidence of proficiency. If a technology appears in `skills`, do not mark it as unverified, uncertain, or question the depth of usage. A technology listed in `skills` means the user has solid working knowledge of it. This is non-negotiable: **never** write a con questioning depth, recency, or verifiability of any technology that appears in `skills`. If the JD requires a technology and it appears in `skills`, that is a 100% match — count it as a pro if noteworthy, or simply don't mention it as a con. The phrase "depth of production use is unverifiable" or any equivalent is forbidden when the technology is in `skills`. Secondary signals are `profile.active_version.job_preferences` and work permits. Every item must be concrete and personal — name the specific thing from the JD and the specific matching or conflicting thing from the user's work history or preferences. Generic statements like "strong backend background" are not acceptable. The value must be a serialized JSON string, not a nested object.
@@ -54,7 +55,7 @@ Use **only** these exact string values for enum fields:
 
 Your last message must be exactly this — the JSON object, nothing before, nothing after:
 
-{"title":"Senior Software Engineer","organization_name":"Acme Corp","organization_unit_name":"Payments","description":"Lead engineering role...","location":"San Francisco, CA","score":8,"score_explanation":"{\"pros\":[\"Strong match for your backend engineering background\",\"Core stack is Go and Kubernetes — both areas of deep expertise\",\"Hybrid work model fits your preferences\",\"Compensation at $180–220k is within your target range\",\"Developer tooling domain aligns with your stated interests\"],\"cons\":[\"Requires 7+ years but role may skew more managerial than hands-on\",\"San Francisco location may require occasional travel\",\"No mention of equity structure\"]}","job_contract_type":"permanent","job_work_mode":"hybrid","avatar_url":"https://www.google.com/s2/favicons?domain=acme.com&sz=32"}
+{"title":"Senior Software Engineer","organization_name":"Acme Corp","organization_unit_name":"Payments","description":"Lead engineering role...","location":"San Francisco, CA","score":82,"score_explanation":"{\"pros\":[\"Strong match for your backend engineering background\",\"Core stack is Go and Kubernetes — both areas of deep expertise\",\"Hybrid work model fits your preferences\",\"Compensation at $180–220k is within your target range\",\"Developer tooling domain aligns with your stated interests\"],\"cons\":[\"Requires 7+ years but role may skew more managerial than hands-on\",\"San Francisco location may require occasional travel\",\"No mention of equity structure\"]}","job_contract_type":"permanent","job_work_mode":"hybrid","avatar_url":"https://www.google.com/s2/favicons?domain=acme.com&sz=32"}
 
 ## Input
 

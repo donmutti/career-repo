@@ -155,7 +155,7 @@ Version fields:
 - title: string (optional)
 - description: string (optional)
 - location: string (optional)
-- score: integer 0–10 (optional)
+- score: integer 0–100 (optional) — represents 0.0–10.0 in the user-facing UI; raw value divided by 10 when displayed (0.1-step resolution)
 - score_explanation: string (optional) — AI-generated explanation of the score
 - started_at: timestamp (optional) — stamped server-side when the version transitions to `started`
 - completed_at: timestamp (optional) — stamped server-side when the version transitions to `completed`
@@ -540,7 +540,7 @@ Versioned entities: two-table pattern — `<entity>` holds identity table (`id`,
 - title TEXT
 - description TEXT
 - location TEXT
-- score INTEGER
+- score INTEGER — stores 0–100 for 0.1-step display resolution
 - score_explanation TEXT
 - started_at TEXT
 - completed_at TEXT
@@ -1239,9 +1239,9 @@ UploadButton — file input trigger with optional size validation:
 - label?: string
 - disabled?: boolean
 
-ScoreBadge - colored badge displaying a numeric score (0–10) as a grade letter with contextual color, `font-medium`:
+ScoreBadge - colored badge displaying a numeric score as a grade letter with contextual color, `font-medium`. Receives the raw integer (0–100) and divides by 10 internally for display (always one decimal, e.g. `7.3`, `8.0`):
 
-- score: number (0–10)
+- score: number (raw 0–100; displayed 0.0–10.0)
 - size?:
   - `sm` - `p-1 text-sm rounded-sm`
   - `md` - `p-2 text-base rounded`

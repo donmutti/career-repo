@@ -34,7 +34,7 @@ function buildClipboardText(score: number | null | undefined, structured: ScoreE
   const lines: string[] = []
   if (title || organizationName) lines.push([title, organizationName].filter(Boolean).join(' @ '))
   if (url) lines.push(url)
-  if (score != null) { lines.push(''); lines.push(`Score: ${score.toFixed(1)}/10`) }
+  if (score != null) { lines.push(''); lines.push(`Score: ${(score / 10).toFixed(1)}/10`) }
   if (lines.length) lines.push('')
   if (structured) {
     const pros = structured.pros.map(p => `+ ${p}`).join('\n')
@@ -48,7 +48,7 @@ function buildClipboardText(score: number | null | undefined, structured: ScoreE
 
 export function ScoreDialog({open, onOpenChange, score, explanation, title, organizationName, url, onRescore}: ScoreDialogProps) {
   const [copied, setCopied] = useState(false)
-  const dialogTitle = score != null ? `Score: ${score.toFixed(1)}/10` : 'Score'
+  const dialogTitle = score != null ? `Score: ${(score / 10).toFixed(1)}/10` : 'Score'
   const structured = explanation ? parseExplanation(explanation) : null
 
   function copyToClipboard() {
