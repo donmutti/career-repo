@@ -37,13 +37,14 @@ export function JobRow({opportunity: o, navigateTo, selected, isChanging, onScor
       onClick={() => navigate(navigateTo)}
       className={`group flex items-center gap-2 pl-3 w-full text-left px-3 h-[38px] cursor-pointer ${selected ? 'hovered' : 'hoverable'}`}
     >
-      <button
+      <IconButton
+        icon={Star}
+        label={is_starred ? 'Unstar' : 'Star'}
+        iconStrokeWidth={1.5}
+        inactiveColor={is_starred ? 'var(--color-action)' : 'var(--color-label-medium)'}
+        iconClassName={is_starred ? 'fill-current' : ''}
         onClick={(e) => { e.stopPropagation(); onToggleStar?.() }}
-        aria-label={is_starred ? 'Unstar' : 'Star'}
-        className="shrink-0 w-5 h-5 flex items-center justify-center cursor-pointer hoverable rounded"
-      >
-        <Star size={14} className={is_starred ? 'fill-current text-action' : 'text-label-light'}/>
-      </button>
+      />
       <CompanyAvatar avatarUrl={o.avatar_url}/>
       <div className="flex-1 min-w-0">
         <div className={`one-liner text-base ${isChanging ? 'text-label-medium' : 'text-label-darker'}`}>
