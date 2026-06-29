@@ -1,5 +1,5 @@
 import {ReactNode} from 'react'
-import {Archive, BookOpen, BriefcaseBusiness, Building2, CalendarDays, CheckCircle, Coins, Folder, GraduationCap, Hash, Inbox, LucideIcon, Play, Signpost, SquareUserRound, Users} from 'lucide-react'
+import {Archive, BookOpen, BriefcaseBusiness, Building2, CalendarDays, CheckCircle, Coins, Folder, GraduationCap, Hash, Inbox, LucideIcon, MapPin, Play, Signpost, SquareUserRound, Users} from 'lucide-react'
 import {dateBucketKey, formatDateBucketKey} from '@/shared/utils/FormatUtils'
 
 export type OpportunityType = 'job' | 'project' | 'education' | 'networking' | 'learning'
@@ -111,7 +111,7 @@ export const STATUS_GROUPS: {key: string; label: string; icon: LucideIcon}[] = [
   {key: 'closed', label: STATUS_LABELS.closed, icon: Archive},
 ]
 
-export type JobGroupByMode = 'status' | 'organization_name' | 'score' | 'title' | 'compensation' | 'date'
+export type JobGroupByMode = 'status' | 'organization_name' | 'location' | 'score' | 'title' | 'compensation' | 'date'
 
 export interface JobGroupByOption {
   label: string
@@ -230,6 +230,12 @@ export const JOB_GROUP_BY_OPTIONS: Record<JobGroupByMode, JobGroupByOption> = {
     label: 'Company',
     icon: Building2,
     groupBy: (item) => item.active_version.organization_name ?? '(Unspecified)',
+    hideEmptyGroups: true,
+  },
+  location: {
+    label: 'Location',
+    icon: MapPin,
+    groupBy: (item) => item.active_version.location ?? '(Unspecified)',
     hideEmptyGroups: true,
   },
   title: {
