@@ -134,7 +134,7 @@ export function JobView({opportunityId}: JobViewProps) {
     <div className="flex flex-col h-full overflow-hidden">
 
       {/* Toolbar */}
-      <div className="flex items-center gap-2 px-5 py-2 border-b pr-6 border-frame-lighter shrink-0 h-14">
+      <div className="flex items-center gap-3 px-5 py-2 border-b pr-6 border-frame-lighter shrink-0 h-14">
 
         {/* Star + Archive */}
         <IconButton

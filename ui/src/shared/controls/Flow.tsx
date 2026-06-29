@@ -16,7 +16,7 @@ interface FlowProps {
 
 export function Flow({steps, value, onChange, direction = 'horizontal', disabled}: FlowProps) {
   return (
-    <div className={`flex ${direction === 'vertical' ? 'flex-col' : 'flex-row items-center'}`}>
+    <div className={`flex border border-frame-lighter rounded-full overflow-hidden ${direction === 'vertical' ? 'flex-col' : 'flex-row items-center'}`}>
       {steps.map((step, i) => {
         const isActive = step.key === value
         const Icon = step.icon
@@ -26,9 +26,9 @@ export function Flow({steps, value, onChange, direction = 'horizontal', disabled
             <button
               disabled={disabled}
               onClick={() => onChange(step.key)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm font-medium transition-colors
+              className={`flex items-center gap-1.5 px-2.5 py-1 !rounded-none text-sm font-medium transition-colors
                 ${isActive
-                  ? 'bg-panel-darkest text-label-white'
+                  ? 'bg-action/10 text-action'
                   : 'text-label-dark hoverable hoverable-text'
                 }
                 ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}
@@ -38,11 +38,6 @@ export function Flow({steps, value, onChange, direction = 'horizontal', disabled
               <span className="one-liner">{step.label}</span>
             </button>
 
-            {i < steps.length - 1 && (
-              <span className={`shrink-0 text-label-medium ${direction === 'vertical' ? 'ml-3 my-0.5 text-xs' : 'mx-1 text-xs'}`}>
-                ›
-              </span>
-            )}
           </div>
         )
       })}
