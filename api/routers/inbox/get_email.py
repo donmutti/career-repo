@@ -1,6 +1,5 @@
 """GET /inbox/{email_id} and POST /inbox/{email_id}/extract"""
 
-from datetime import date
 from typing import List
 
 from fastapi import APIRouter, HTTPException
@@ -57,9 +56,6 @@ async def extract_opportunities(email_id: str):
             except ValueError:
                 opp_type = OpportunityType.JOB
 
-            opened_on_raw = opp_data.get("opened_on", date.today().isoformat())
-            opened_on = date.fromisoformat(opened_on_raw) if isinstance(opened_on_raw, str) else (opened_on_raw or date.today())
-
             status_raw = opp_data.get("status", "opened")
             try:
                 status = OpportunityStatus(status_raw)
@@ -71,7 +67,6 @@ async def extract_opportunities(email_id: str):
                 title=opp_data.get("title", "Untitled"),
                 description=opp_data.get("description"),
                 location=opp_data.get("location"),
-                opened_on=opened_on,
             )
             opp_id = opp_dao.create(
                 opp_data.get("url") or None,

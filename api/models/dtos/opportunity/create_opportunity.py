@@ -6,7 +6,6 @@ class CreateOpportunityRequestDto(BaseModel):
     url: Optional[str] = None
     type: Optional[str] = None
     title: Optional[str] = None
-    opened_on: Optional[str] = None
     description: Optional[str] = None
     location: Optional[str] = None
     organization_name: Optional[str] = None

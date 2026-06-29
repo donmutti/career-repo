@@ -1,9 +1,9 @@
 import {ReactNode} from 'react'
-import {Archive, BookOpen, BriefcaseBusiness, Building2, CalendarDays, CheckCircle, Coins, Folder, GraduationCap, Hash, Inbox, LucideIcon, Play, Signpost, SquareUserRound, Star, Users} from 'lucide-react'
+import {Archive, BookOpen, BriefcaseBusiness, Building2, CalendarDays, CheckCircle, Coins, Folder, GraduationCap, Hash, Inbox, LucideIcon, Play, Signpost, SquareUserRound, Users} from 'lucide-react'
 import {dateBucketKey, formatDateBucketKey} from '@/shared/utils/FormatUtils'
 
 export type OpportunityType = 'job' | 'project' | 'education' | 'networking' | 'learning'
-export type OpportunityStatus = 'opened' | 'started' | 'completed'
+export type OpportunityStatus = 'opened' | 'started' | 'completed' | 'closed'
 export type JobContractType = 'permanent' | 'fixed_term' | 'contractor'
 export type JobWorkMode = 'onsite' | 'remote' | 'hybrid'
 export type JobPayPeriod = 'hourly' | 'daily' | 'monthly' | 'annual' | 'milestone'
@@ -22,10 +22,9 @@ export interface OpportunityVersion {
   location?: string | null
   score?: number | null
   score_explanation?: string | null
-  opened_on: string
-  started_on?: string | null
-  completed_on?: string | null
-  closed_on?: string | null
+  started_at?: string | null
+  completed_at?: string | null
+  closed_at?: string | null
   close_reason?: string | null
   is_starred: boolean
 
@@ -102,24 +101,15 @@ export const STATUS_LABELS: Record<string, string> = {
   opened: 'New',
   started: 'In progress',
   completed: 'Completed',
-  archived: 'Archived',
-  starred: 'Starred',
+  closed: 'Archived',
 }
 
 export const STATUS_GROUPS: {key: string; label: string; icon: LucideIcon}[] = [
   {key: 'opened', label: STATUS_LABELS.opened, icon: Inbox},
   {key: 'started', label: STATUS_LABELS.started, icon: Play},
   {key: 'completed', label: STATUS_LABELS.completed, icon: CheckCircle},
+  {key: 'closed', label: STATUS_LABELS.closed, icon: Archive},
 ]
-
-export const STATUS_FILTER_GROUPS: {key: string; label: string; icon: LucideIcon}[] = [
-  ...STATUS_GROUPS,
-  {key: 'archived', label: STATUS_LABELS.archived, icon: Archive},
-]
-
-export const STARRED_FILTER: {key: string; label: string; icon: LucideIcon} = {
-  key: 'starred', label: STATUS_LABELS.starred, icon: Star,
-}
 
 export type JobGroupByMode = 'status' | 'organization_name' | 'score' | 'title' | 'compensation' | 'date'
 

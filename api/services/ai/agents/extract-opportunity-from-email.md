@@ -32,8 +32,7 @@ Example:
     "status": "opened",
     "description": "Seeking a senior engineer to lead...",
     "location": "Remote",
-    "is_realized": false,
-    "opened_on": "2026-05-21"
+    "is_realized": false
   },
   {
     "url": "https://linkedin.com/jobs/view/12346",
@@ -41,8 +40,7 @@ Example:
     "type": "job",
     "status": "opened",
     "location": "San Francisco, CA",
-    "is_realized": false,
-    "opened_on": "2026-05-21"
+    "is_realized": false
   }
 ]
 ```
@@ -55,7 +53,6 @@ Example:
 - Extract only information explicitly stated in the email
 - Infer reasonable defaults (e.g., status = `opened` for new opportunities)
 - Flag suspicious emails (spam, phishing) by returning `[{"is_opportunity": false, "reason": "..."}]`
-- Use current date for `opened_on` if not specified
 - Be conservative; if unsure whether an item is an opportunity, still extract it
 - Return empty array `[]` if no opportunities are found in the email
 

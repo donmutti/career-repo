@@ -1,7 +1,5 @@
 """OpportunityService — AI-driven opportunity operations."""
 
-from datetime import date
-
 from api.services.ai import AgentRunError, AgentRun, AgentName
 
 from api.db import OpportunityDAO, ProfileDAO, WorkExperienceDAO
@@ -26,9 +24,6 @@ _ENUM_FIELDS = {
     "networking_type": NetworkingType,
     "learning_type": LearningType,
 }
-_DATE_FIELDS = {"opened_on", "started_on", "completed_on", "closed_on"}
-
-
 def _parse_version_fields(data: dict) -> dict:
     result = {}
     for k, v in data.items():
@@ -37,11 +32,6 @@ def _parse_version_fields(data: dict) -> dict:
                 result[k] = _ENUM_FIELDS[k](v)
             except ValueError:
                 pass  # skip invalid agent output rather than raising
-        elif k in _DATE_FIELDS:
-            try:
-                result[k] = date.fromisoformat(v)
-            except (ValueError, TypeError):
-                pass
         else:
             result[k] = v
     return result

@@ -1,6 +1,6 @@
 import {useEffect, useRef, useState} from 'react'
 import {useNavigate} from 'react-router'
-import {Archive, Briefcase, Coins, ExternalLink, MapPin, Pencil, Plus, RefreshCw, Star, X} from 'lucide-react'
+import {Briefcase, Coins, ExternalLink, MapPin, Pencil, Plus, RefreshCw, Star, X} from 'lucide-react'
 import {Spinner} from '@/shared/controls/Spinner'
 import {Flow} from '@/shared/controls/Flow'
 import {OpportunityMenu} from '@/app/opportunities/OpportunityMenu'
@@ -136,28 +136,28 @@ export function JobView({opportunityId}: JobViewProps) {
       {/* Toolbar */}
       <div className="flex items-center gap-3 px-5 py-2 border-b pr-6 border-frame-lighter shrink-0 h-14">
 
-        {/* Star + Archive */}
+        {/* Star */}
         <IconButton
           icon={Star}
           label={activeVersion.is_starred ? 'Unstar' : 'Star'}
           tooltip
-          active={activeVersion.is_starred}
+          iconStrokeWidth={1.5}
+          inactiveColor={activeVersion.is_starred ? 'var(--color-action)' : 'var(--color-label-medium)'}
           iconClassName={activeVersion.is_starred ? 'fill-current' : ''}
           onClick={() => patch({is_starred: !activeVersion.is_starred})}
-        />
-        <IconButton
-          icon={Archive}
-          label="Archive"
-          tooltip
-          disabled={activeVersion.closed_on != null}
-          onClick={() => setArchiveReasonOpen(true)}
         />
 
         {/* Status flow */}
         <Flow
-          steps={STATUS_GROUPS}
+          steps={STATUS_GROUPS.map(({key, label}) => ({key, label}))}
           value={activeVersion.status}
-          onChange={(key) => patch({status: key})}
+          onChange={(key) => {
+            if (key === 'closed') {
+              setArchiveReasonOpen(true)
+            } else {
+              patch({status: key})
+            }
+          }}
         />
 
         {/* Evaluation + Score */}
@@ -518,7 +518,7 @@ export function JobView({opportunityId}: JobViewProps) {
         onOpenChange={setArchiveReasonOpen}
         title="Why archiving?"
         submitLabel="Archive"
-        onSubmit={(reason) => patch({closed_on: new Date().toISOString().slice(0, 10), close_reason: reason ?? 'Not for me'})}
+        onSubmit={(reason) => patch({status: 'closed', close_reason: reason ?? 'Not for me'})}
       />
 
       {/* Delete dialog */}

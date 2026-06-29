@@ -1,6 +1,6 @@
 import {useState, useMemo} from 'react'
 import {LocalStorageUtils} from '@/shared/utils/LocalStorageUtils'
-import {OPP_TYPE_LABELS, OPP_TYPES, STATUS_FILTER_GROUPS, STARRED_FILTER} from '@/app/opportunities/OpportunityTypes'
+import {OPP_TYPE_LABELS, OPP_TYPES, STATUS_GROUPS} from '@/app/opportunities/OpportunityTypes'
 import {filterByTimeWindow, TIME_WINDOWS} from '@/shared/controls/views/TimeWindowTypes'
 import {Outlet, useNavigate} from 'react-router'
 import {Panes, PaneBody, PaneHeader, PaneResizeHandle} from '@/shared/controls/panes/Panes'
@@ -51,23 +51,22 @@ export default function OpportunityPage() {
   const windowCounts = useMemo(() => {
     const base = activeType ? opportunities.filter(o => o.type === activeType) : opportunities
     return TIME_WINDOWS.reduce<Record<string, number>>((acc, w) => {
-      acc[w.key] = w.key === 'all' ? base.length : filterByTimeWindow(base, w.key).length
+      if (w.key === 'all') acc[w.key] = base.length
+      else if (w.key === 'starred') acc[w.key] = base.filter(o => o.active_version.is_starred).length
+      else acc[w.key] = filterByTimeWindow(base, w.key).length
       return acc
     }, {})
   }, [opportunities, activeType])
 
   const statusCounts = useMemo(() => {
-    const base = filterByTimeWindow(activeType ? opportunities.filter(o => o.type === activeType) : opportunities, timeWindow)
-    const counts: Record<string, number> = {
-      archived: base.filter(o => o.active_version.closed_on != null).length,
-      starred: base.filter(o => o.active_version.is_starred).length,
-    }
-    const nonArchived = base.filter(o => o.active_version.closed_on == null)
-    for (const s of STATUS_FILTER_GROUPS) {
-      if (s.key in counts) continue
-      counts[s.key] = nonArchived.filter(o => o.active_version.status === s.key).length
-    }
-    return counts
+    const typed = activeType ? opportunities.filter(o => o.type === activeType) : opportunities
+    const inWindow = timeWindow === 'starred'
+      ? typed.filter(o => o.active_version.is_starred)
+      : filterByTimeWindow(typed, timeWindow)
+    return STATUS_GROUPS.reduce<Record<string, number>>((acc, s) => {
+      acc[s.key] = inWindow.filter(o => o.active_version.status === s.key).length
+      return acc
+    }, {})
   }, [opportunities, activeType, timeWindow])
 
   return (
@@ -110,7 +109,7 @@ export default function OpportunityPage() {
             />
             <div className="border-t border-frame-lighter mx-2 my-2"/>
             <ListView
-              items={STATUS_FILTER_GROUPS}
+              items={STATUS_GROUPS}
               getItemKey={(s) => s.key}
               renderItem={(s) => (
                 <button
@@ -128,19 +127,6 @@ export default function OpportunityPage() {
                 </button>
               )}
             />
-            <div className="border-t border-frame-lighter mx-2 my-2"/>
-            <button
-              onClick={() => {
-                const next = statusFilter === STARRED_FILTER.key ? null : STARRED_FILTER.key
-                setStatusFilter(next)
-                LocalStorageUtils.set('pane.opportunities.statusFilter', next)
-              }}
-              className={`flex items-center gap-2 w-full px-3 py-2 text-left ${statusFilter === STARRED_FILTER.key ? 'text-action hovered' : 'text-label-dark hoverable'}`}
-            >
-              <STARRED_FILTER.icon size={16} className="shrink-0"/>
-              <span className="flex-1 text-base text-label-darker">{STARRED_FILTER.label}</span>
-              <span className="text-sm text-label-medium">{formatCount(statusCounts[STARRED_FILTER.key] ?? 0)}</span>
-            </button>
           </div>
         </PaneBody>
       </div>

@@ -1,6 +1,6 @@
 """Opportunity aggregate models."""
 
-from datetime import date, datetime
+from datetime import datetime
 from enum import Enum
 from typing import Optional
 
@@ -13,6 +13,7 @@ class OpportunityStatus(str, Enum):
     OPENED = "opened"
     STARTED = "started"
     COMPLETED = "completed"
+    CLOSED = "closed"
 
 
 class OpportunityType(str, Enum):
@@ -95,10 +96,9 @@ class OpportunityVersion(EntityVersion):
     location: Optional[str] = None
     score: Optional[int] = None
     score_explanation: Optional[str] = None
-    opened_on: date
-    started_on: Optional[date] = None
-    completed_on: Optional[date] = None
-    closed_on: Optional[date] = None
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    closed_at: Optional[datetime] = None
     close_reason: Optional[str] = None
     is_starred: bool = False
     organization_name: Optional[str] = None

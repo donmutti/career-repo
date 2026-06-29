@@ -115,7 +115,7 @@ class OpportunityDAO(VersionedEntityDAO[Opportunity]):
             SELECT o.* FROM {self.table_name} o
             JOIN {self.version_table_name} v
               ON v.{self.version_fk_column} = o.id AND v.active_to IS NULL
-            ORDER BY v.score DESC NULLS LAST, COALESCE(v.opened_on, o.created_at) DESC
+            ORDER BY v.score DESC NULLS LAST, o.created_at DESC
             """
         )
         result = []
@@ -161,10 +161,9 @@ class OpportunityDAO(VersionedEntityDAO[Opportunity]):
             location=r.get("location"),
             score=r.get("score"),
             score_explanation=r.get("score_explanation"),
-            opened_on=r["opened_on"],
-            started_on=r.get("started_on"),
-            completed_on=r.get("completed_on"),
-            closed_on=r.get("closed_on"),
+            started_at=r.get("started_at"),
+            completed_at=r.get("completed_at"),
+            closed_at=r.get("closed_at"),
             close_reason=r.get("close_reason"),
             is_starred=bool(r["is_starred"]) if r.get("is_starred") is not None else False,
             organization_name=r.get("organization_name"),
@@ -196,7 +195,6 @@ class OpportunityDAO(VersionedEntityDAO[Opportunity]):
         data: Dict[str, Any] = {
             "status": version.status.value,
             "title": version.title,
-            "opened_on": version.opened_on.isoformat(),
             "is_starred": int(version.is_starred),
         }
         _opt_fields = [
@@ -207,9 +205,9 @@ class OpportunityDAO(VersionedEntityDAO[Opportunity]):
             ("organization_name", version.organization_name),
             ("parent_id", version.parent_id),
             # dates
-            ("started_on", version.started_on.isoformat() if version.started_on else None),
-            ("completed_on", version.completed_on.isoformat() if version.completed_on else None),
-            ("closed_on", version.closed_on.isoformat() if version.closed_on else None),
+            ("started_at", version.started_at.isoformat() if version.started_at else None),
+            ("completed_at", version.completed_at.isoformat() if version.completed_at else None),
+            ("closed_at", version.closed_at.isoformat() if version.closed_at else None),
             ("close_reason", version.close_reason),
             # job
             ("job_role", version.job_role),

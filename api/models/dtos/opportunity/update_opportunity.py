@@ -9,10 +9,6 @@ class UpdateOpportunityRequestDto(BaseModel):
     location: Optional[str] = None
     score: Optional[int] = None
     score_explanation: Optional[str] = None
-    opened_on: Optional[str] = None
-    started_on: Optional[str] = None
-    completed_on: Optional[str] = None
-    closed_on: Optional[str] = None
     close_reason: Optional[str] = None
     is_starred: Optional[bool] = None
     organization_name: Optional[str] = None

@@ -1,4 +1,4 @@
-import {Calendar, CalendarClock, CalendarDays, CalendarRange, CalendarSearch, ClockAlert, LucideIcon} from 'lucide-react'
+import {Calendar, CalendarClock, CalendarDays, CalendarRange, CalendarSearch, ClockAlert, LucideIcon, Star} from 'lucide-react'
 
 export interface TimeWindow {
   key: string
@@ -12,6 +12,7 @@ export const TIME_WINDOWS: TimeWindow[] = [
   {key: 'yesterday', label: 'Yesterday', icon: CalendarClock},
   {key: 'last7', label: 'Last 7 days', icon: CalendarDays},
   {key: 'last30', label: 'Last 30 days', icon: CalendarRange},
+  {key: 'starred', label: 'Starred', icon: Star},
 ]
 
 export const PENDING_WINDOW: TimeWindow = {key: 'pending', label: 'Pending', icon: ClockAlert}

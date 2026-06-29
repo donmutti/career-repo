@@ -47,14 +47,11 @@ export default function JobListPage() {
     onSuccess: () => queryClient.invalidateQueries({queryKey: queryKeys.opportunities}),
   })
 
-  const jobs = filterByTimeWindow(opportunities.filter(o => o.type === 'job'), timeWindow)
-    .filter(o => {
-      const isArchived = o.active_version.closed_on != null
-      if (statusFilter === 'archived') return isArchived
-      if (statusFilter === 'starred') return o.active_version.is_starred
-      if (isArchived) return false
-      return !statusFilter || o.active_version.status === statusFilter
-    })
+  const typedJobs = opportunities.filter(o => o.type === 'job')
+  const inWindow = timeWindow === 'starred'
+    ? typedJobs.filter(o => o.active_version.is_starred)
+    : filterByTimeWindow(typedJobs, timeWindow)
+  const jobs = inWindow.filter(o => !statusFilter || o.active_version.status === statusFilter)
 
   const byStatus = jobs.reduce<Record<string, Opportunity[]>>((acc, o) => {
     ;(acc[o.active_version.status] ??= []).push(o)
@@ -67,11 +64,13 @@ export default function JobListPage() {
   // Groups by status, with new unscored lifted to the top for visibility
   const g = (key: string) => (byStatus[key] ?? []).slice().sort((a, b) => +isNewUnscored(b) - +isNewUnscored(a))
 
-  // Groups scored by status
+  // Groups scored by status; when a specific status filter is active, expand all
+  const collapse = (key: string) => !statusFilter && key !== 'started'
   const groups = [
+    {key: 'opened', label: STATUS_LABELS.opened, count: g('opened').length, items: g('opened'), defaultCollapsed: collapse('opened')},
     {key: 'started', label: STATUS_LABELS.started, count: g('started').length, items: g('started')},
-    {key: 'opened', label: STATUS_LABELS.opened, count: g('opened').length, items: g('opened')},
-    {key: 'completed', label: STATUS_LABELS.completed, count: g('completed').length, items: g('completed')},
+    {key: 'completed', label: STATUS_LABELS.completed, count: g('completed').length, items: g('completed'), defaultCollapsed: collapse('completed')},
+    {key: 'closed', label: STATUS_LABELS.closed, count: g('closed').length, items: g('closed'), defaultCollapsed: collapse('closed')},
   ]
 
   return (

@@ -1,6 +1,6 @@
 """CRUD and sub-resource routes for /opportunities"""
 
-from datetime import date
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException
@@ -54,7 +54,6 @@ def _parse_version_fields(data: dict) -> dict:
         "networking_type": NetworkingType,
         "learning_type": LearningType,
     }
-    date_fields = {"opened_on", "started_on", "completed_on", "closed_on"}
     result = {}
     for k, v in data.items():
         if v is None:
@@ -64,11 +63,6 @@ def _parse_version_fields(data: dict) -> dict:
                 result[k] = enum_fields[k](v)
             except ValueError:
                 raise HTTPException(status_code=422, detail=f"Invalid value for {k!r}: {v!r}")
-        elif k in date_fields:
-            try:
-                result[k] = date.fromisoformat(v)
-            except (ValueError, TypeError):
-                raise HTTPException(status_code=422, detail=f"Invalid date for {k!r}: {v!r}")
         else:
             result[k] = v
     return result
@@ -92,19 +86,17 @@ def create_opportunity(request: CreateOpportunityRequestDto):
     except ValueError:
         raise HTTPException(status_code=422, detail=f"Invalid opportunity type: {request.type!r}")
     title = request.title or None
-    opened_on_date = date.fromisoformat(request.opened_on) if request.opened_on else date.today()
 
     existing = opp_dao.find_by_url(request.url)
     if existing:
         raise HTTPException(status_code=409, detail={"message": "Opportunity already exists", "details": {"id": existing.id}})
 
-    raw = request.model_dump(exclude={"url", "type", "title", "opened_on"}, exclude_none=True)
+    raw = request.model_dump(exclude={"url", "type", "title"}, exclude_none=True)
     typed = _parse_version_fields(raw)
 
     version = OpportunityVersion(
         status=OpportunityStatus.OPENED,
         title=title,
-        opened_on=opened_on_date,
         **typed,
     )
     opp_id = opp_dao.create(request.url, opp_type, version)
@@ -130,14 +122,23 @@ def update_opportunity(opportunity_id: str, request: UpdateOpportunityRequestDto
     if not updates:
         return opportunity
     typed = _parse_version_fields(updates)
+    # Stamp lifecycle timestamp when status transitions
+    new_status = typed.get("status")
+    prev_status = opportunity.active_version.status
+    if new_status is not None and new_status != prev_status:
+        now = datetime.now(timezone.utc)
+        if new_status == OpportunityStatus.STARTED:
+            typed["started_at"] = now
+        elif new_status == OpportunityStatus.COMPLETED:
+            typed["completed_at"] = now
+        elif new_status == OpportunityStatus.CLOSED:
+            typed["closed_at"] = now
     enriched = opportunity.model_copy(update={
         "active_version": opportunity.active_version.model_copy(update=typed)
     })
     result = opp_dao.update(opportunity_id, enriched.active_version)
-    # On archive: record reason and write note (closed_on transitioning from null to a date)
-    was_archived = opportunity.active_version.closed_on is not None
-    now_archived = enriched.active_version.closed_on is not None
-    if not was_archived and now_archived:
+    # On archive: record reason and write note (status transitioning to closed)
+    if new_status == OpportunityStatus.CLOSED and prev_status != OpportunityStatus.CLOSED:
         close_reason = request.close_reason
         not_for_me = decline_reason_dao.get(NOT_FOR_ME_ID)
         not_for_me_text = not_for_me.text if not_for_me else "Not for me"

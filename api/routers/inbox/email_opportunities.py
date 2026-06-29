@@ -1,6 +1,5 @@
 """GET /inbox/{email_id}/opportunities, PATCH /inbox/opportunities/{id}"""
 
-from datetime import date
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
@@ -57,12 +56,10 @@ async def patch_email_opportunity(eo_id: str, body: PatchEmailOpportunityDto):
     if body.status == "extracted" and not eo.opportunity_id:
         opp_type = OpportunityType(eo.type) if eo.type in OpportunityType._value2member_map_ else OpportunityType.JOB
         email = email_dao.get(eo.inbox_email_id)
-        opened_on = email.received_at.date() if email else date.today()
         description = f"From: {email.from_address}\nSubject: {email.subject}\n\n{email.body}" if email else None
         version = OpportunityVersion(
             status=OpportunityStatus.OPENED,
             title=eo.title,
-            opened_on=opened_on,
             organization_name=eo.organization_name,
             description=description,
         )
