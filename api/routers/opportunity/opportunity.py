@@ -13,6 +13,7 @@ from ...db import (
     CommentDAO, AttachmentDAO,
     OpportunityEmbeddingDAO, OpportunitySimilarityDAO,
     DeclineReasonDAO,
+    ProfileDAO,
 )
 from ...db.daos.inbox.decline_reason_dao import NOT_FOR_ME_ID
 from ...models import (
@@ -22,7 +23,7 @@ from ...models import (
     ProjectType, EducationType, EducationLevel, NetworkingType, LearningType,
     CreateOpportunityRequestDto, UpdateOpportunityRequestDto,
     Comment, CommentVersion, CreateCommentRequestDto,
-    Attachment, CreateAttachmentRequestDto,
+    Attachment, AttachmentType, CreateAttachmentRequestDto,
 )
 from ...services.ai import runtime
 from ...services.files import FileService
@@ -37,6 +38,7 @@ attach_dao = AttachmentDAO()
 embedding_dao = OpportunityEmbeddingDAO()
 similarity_dao = OpportunitySimilarityDAO()
 decline_reason_dao = DeclineReasonDAO()
+profile_dao = ProfileDAO()
 files = FileService(ROOT / get_attachment_path())
 opp_service = OpportunityService()
 
@@ -388,5 +390,10 @@ def download_attachment(attachment_id: str):
     if not full_path.exists():
         raise HTTPException(status_code=404, detail=f"Attachment file not found at {attachment.file_path}")
     suffix = full_path.suffix
-    filename = f"{attachment.title}{suffix}" if attachment.title else full_path.name
+    if attachment.type == AttachmentType.MOTIVATION:
+        profile = profile_dao.get()
+        full_name = profile.active_version.full_name if profile and profile.active_version else None
+        filename = f"{full_name} – Cover Letter{suffix}" if full_name else f"Cover Letter{suffix}"
+    else:
+        filename = f"{attachment.title}{suffix}" if attachment.title else full_path.name
     return FileResponse(path=full_path, filename=filename, media_type=attachment.file_type)
