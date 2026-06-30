@@ -21,7 +21,7 @@ export interface OpportunityVersion {
   description?: string | null
   location?: string | null
   score?: number | null
-  score_explanation?: string | null
+  score_explanation?: {pros: string[]; cons: string[]} | null
   started_at?: string | null
   completed_at?: string | null
   closed_at?: string | null

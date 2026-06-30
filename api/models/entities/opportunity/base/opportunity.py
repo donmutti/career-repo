@@ -86,6 +86,11 @@ class LearningType(str, Enum):
     OTHER = "other"
 
 
+class ScoreExplanation(BaseModel):
+    pros: list[str] = []
+    cons: list[str] = []
+
+
 class OpportunityVersion(EntityVersion):
     """Versioned opportunity data — flat layout covering all types."""
 
@@ -95,7 +100,7 @@ class OpportunityVersion(EntityVersion):
     description: Optional[str] = None
     location: Optional[str] = None
     score: Optional[int] = None
-    score_explanation: Optional[str] = None
+    score_explanation: Optional[ScoreExplanation] = None
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     closed_at: Optional[datetime] = None

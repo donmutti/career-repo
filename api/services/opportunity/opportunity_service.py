@@ -11,7 +11,7 @@ from api.db.daos.opportunity.base.opportunity_embedding_dao import OpportunityEm
 from api.db.daos.opportunity.base.opportunity_similarity_dao import OpportunitySimilarityDAO
 from api.db.daos.opportunity.meta.attachment_dao import AttachmentDAO
 from api.models.entities.opportunity.base.opportunity import (
-    OpportunityStatus, OpportunityType,
+    OpportunityStatus, OpportunityType, ScoreExplanation,
     JobContractType, JobWorkMode, JobPayPeriod,
     ProjectType, EducationType, EducationLevel, NetworkingType, LearningType,
 )
@@ -36,6 +36,19 @@ def _parse_version_fields(data: dict) -> dict:
                 result[k] = _ENUM_FIELDS[k](v)
             except ValueError:
                 pass  # skip invalid agent output rather than raising
+        elif k == "score_explanation":
+            if isinstance(v, dict):
+                try:
+                    result[k] = ScoreExplanation.model_validate(v)
+                except Exception as e:
+                    logger.warning("score_explanation validation failed: %s; raw=%r", e, v)
+            elif isinstance(v, str):
+                # Legacy: agent returned serialized JSON string — try to salvage
+                import json as _json
+                try:
+                    result[k] = ScoreExplanation.model_validate(_json.loads(v))
+                except Exception as e:
+                    logger.warning("score_explanation legacy-string parse failed: %s", e)
         else:
             result[k] = v
     return result

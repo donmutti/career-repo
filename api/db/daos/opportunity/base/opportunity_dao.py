@@ -1,13 +1,35 @@
 """Opportunity DAO — flat single-table layout."""
 
+import json
+import logging
 import sqlite3
 from typing import Any, Dict, List, Optional
 
 from api.models.entities import (
     Opportunity, OpportunityVersion, OpportunityType, OpportunityStatus,
+    ScoreExplanation,
 )
 from api.models.types import EntityNotFoundError
 from ...base import VersionedEntityDAO
+
+logger = logging.getLogger(__name__)
+
+
+def _parse_score_explanation(raw: Optional[str]) -> Optional[ScoreExplanation]:
+    """Parse the stored JSON string into a ScoreExplanation, returning None on malformed input."""
+    if not raw:
+        return None
+    try:
+        data = json.loads(raw)
+        if not isinstance(data, dict):
+            return None
+        return ScoreExplanation(
+            pros=data.get("pros") if isinstance(data.get("pros"), list) else [],
+            cons=data.get("cons") if isinstance(data.get("cons"), list) else [],
+        )
+    except (json.JSONDecodeError, ValueError, TypeError) as e:
+        logger.warning("score_explanation parse failed: %s", e)
+        return None
 
 
 class OpportunityDAO(VersionedEntityDAO[Opportunity]):
@@ -160,7 +182,7 @@ class OpportunityDAO(VersionedEntityDAO[Opportunity]):
             description=r.get("description"),
             location=r.get("location"),
             score=r.get("score"),
-            score_explanation=r.get("score_explanation"),
+            score_explanation=_parse_score_explanation(r.get("score_explanation")),
             started_at=r.get("started_at"),
             completed_at=r.get("completed_at"),
             closed_at=r.get("closed_at"),
@@ -201,7 +223,7 @@ class OpportunityDAO(VersionedEntityDAO[Opportunity]):
             ("description", version.description),
             ("location", version.location),
             ("score", version.score),
-            ("score_explanation", version.score_explanation),
+            ("score_explanation", version.score_explanation.model_dump_json() if version.score_explanation else None),
             ("organization_name", version.organization_name),
             ("parent_id", version.parent_id),
             # dates

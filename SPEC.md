@@ -156,7 +156,7 @@ Version fields:
 - description: string (optional)
 - location: string (optional)
 - score: integer 0–100 (optional) — represents 0.0–10.0 in the user-facing UI; raw value divided by 10 when displayed (0.1-step resolution)
-- score_explanation: string (optional) — AI-generated explanation of the score
+- score_explanation: object `{pros: [string], cons: [string]}` (optional) — AI-generated explanation of the score; persisted as JSON in a TEXT column
 - started_at: timestamp (optional) — stamped server-side when the version transitions to `started`
 - completed_at: timestamp (optional) — stamped server-side when the version transitions to `completed`
 - closed_at: timestamp (optional) — stamped server-side when the version transitions to `closed` (archive)
@@ -541,7 +541,7 @@ Versioned entities: two-table pattern — `<entity>` holds identity table (`id`,
 - description TEXT
 - location TEXT
 - score INTEGER — stores 0–100 for 0.1-step display resolution
-- score_explanation TEXT
+- score_explanation TEXT — JSON object of shape `{pros: [string], cons: [string]}`
 - started_at TEXT
 - completed_at TEXT
 - closed_at TEXT
@@ -758,7 +758,7 @@ OpportunityVersion (EntityVersion) — flat layout, all type-specific fields opt
 - description: str (optional)
 - location: str (optional)
 - score: int (optional)
-- score_explanation: str (optional)
+- score_explanation: ScoreExplanation `{pros: [str], cons: [str]}` (optional)
 - started_at: datetime (optional)
 - completed_at: datetime (optional)
 - closed_at: datetime (optional)
@@ -1478,7 +1478,7 @@ FilePreviewDialog — previews a file with download and open actions:
 - filePath: string
 - title?: string
 
-ScoreDialog — displays AI score details (pros/cons) with rescore action; score_explanation is a JSON string `{pros: string[], cons: string[]}`:
+ScoreDialog — displays AI score details (pros/cons) with rescore action; score_explanation is a nested object `{pros: string[], cons: string[]}`:
 
 - open: boolean
 - onOpenChange: (v: boolean) => void
