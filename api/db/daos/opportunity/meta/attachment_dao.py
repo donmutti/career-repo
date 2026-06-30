@@ -37,7 +37,7 @@ class AttachmentDAO(BaseEntityDAO[Attachment]):
     def list_for_opportunity(self, opportunity_id: str) -> List[Attachment]:
         """List all attachments for an opportunity."""
         cursor = self._execute(
-            "SELECT * FROM attachment WHERE opportunity_id = ? ORDER BY created_at DESC",
+            "SELECT * FROM attachment WHERE opportunity_id = ? ORDER BY created_at ASC",
             (opportunity_id,),
         )
         return [self._from_dict(dict(row)) for row in cursor.fetchall()]
