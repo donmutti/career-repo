@@ -2,6 +2,7 @@
 
 import re
 from pathlib import Path
+from typing import Callable
 
 from fpdf import FPDF
 
@@ -11,6 +12,20 @@ class FileService:
 
     def __init__(self, artifact_root: Path):
         self.artifact_root = artifact_root
+
+    @staticmethod
+    def unique_name(base: str, exists: Callable[[str], bool], max_attempts: int = 100) -> str:
+        """Return `base`, or `base (1)`, `base (2)`, … — the first candidate for which `exists` returns False.
+
+        Raises RuntimeError if no candidate is available within `max_attempts`.
+        """
+        if not exists(base):
+            return base
+        for i in range(1, max_attempts + 1):
+            candidate = f"{base} ({i})"
+            if not exists(candidate):
+                return candidate
+        raise RuntimeError(f"unique_name: exhausted {max_attempts} attempts for base {base!r}")
 
     def write_md(self, relative_path: str, md_content: str) -> Path:
         """Write markdown content to a file under artifact_root. Returns the full path."""

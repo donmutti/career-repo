@@ -14,16 +14,17 @@ class AttachmentDAO(BaseEntityDAO[Attachment]):
         file_path: str,
         file_type: str,
         title: Optional[str] = None,
+        attachment_id: Optional[str] = None,
     ) -> Attachment:
-        """Create an attachment on an opportunity."""
-        attach_id = self._generate_id()
+        """Create an attachment on an opportunity. Accepts a pre-generated id (for cases where the file path embeds the id)."""
+        attachment_id = attachment_id or self._generate_id()
         now = self._now()
         self._execute(
             "INSERT INTO attachment (id, opportunity_id, type, title, file_path, file_type, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (attach_id, opportunity_id, attachment_type.value, title, file_path, file_type, now),
+            (attachment_id, opportunity_id, attachment_type.value, title, file_path, file_type, now),
         )
         self._save()
-        return self.get(attach_id)
+        return self.get(attachment_id)
 
     def get(self, artifact_id: str) -> Optional[Attachment]:
         """Get an attachment by ID."""

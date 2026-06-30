@@ -151,7 +151,16 @@ class OpportunityService:
                 run.fail()
                 return
 
-            file_path = f"{opportunity_id}/cover_letter.pdf"
+            import uuid
+            from api.services.files import FileService
+            existing = self._attach_dao.list_for_opportunity(opportunity_id)
+            existing_titles = {a.title for a in existing if a.title}
+
+            base_title = f"Cover Letter \u2013 {opportunity.active_version.title}"
+            title = FileService.unique_name(base_title, lambda t: t in existing_titles)
+            attachment_id = str(uuid.uuid4())
+            file_path = f"{opportunity_id}/{attachment_id}.pdf"
+
             try:
                 self._files.write_pdf(file_path, md_content)
             except RuntimeError:
@@ -163,7 +172,8 @@ class OpportunityService:
                 attachment_type=AttachmentType.MOTIVATION,
                 file_path=file_path,
                 file_type="application/pdf",
-                title=f"Cover Letter \u2013 {opportunity.active_version.title}",
+                title=title,
+                attachment_id=attachment_id,
             )
             run.complete()
 
