@@ -14,12 +14,14 @@ You receive the payload as a separate user message of the form `<input>{...}</in
 ## Task
 
 1. Mine the opportunity description — it may contain the full email body or a job description with important details (title, compensation, location, contract type, etc.). Extract everything useful from it.
-2. Fetch the opportunity URL if present and analyze the page content to further enrich the record. If the URL is a LinkedIn job page, look for an "Apply" button or external link that leads to the company's own job posting, and fetch that page instead — it typically has the full job description and compensation details.
+2. Fetch the opportunity URL if present and analyze the page content to further enrich the record.
+   - **LinkedIn URLs — MANDATORY fetch with rewrite.** If the URL matches `https://www.linkedin.com/(comm/)?jobs/view/<id>/?…`, you MUST fetch it, regardless of how complete the input `description` already looks. Do NOT fetch the original URL — it's login-gated and returns a stub. Instead, extract the numeric `<id>` and fetch `https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/<id>` — this is the public unauthenticated mirror and returns the full JD (including a "What You Will Do" / "Who You Are" / responsibilities / requirements section).
+   - After the fetch, verify you actually got a JD: the fetched page must contain a substantive job-description body (typically 500+ characters of role-specific content — responsibilities, requirements, tech stack). If instead you got only navigation, sign-in prompts, or a short stub with no JD body, treat the fetch as failed.
 3. If the fetched page has a better opportunity description than what's in the input, use it.
-4. Score the opportunity based on alignment with the user's profile and work experience.
+4. Score the opportunity based on alignment with the user's profile and work experience. **If the fetch failed (see the verification rule above) AND the input `description` has no substantive JD body — e.g. it's a job-alert digest listing several roles, or just a title + company + location — omit the `score` field entirely. Do not guess from title alone.** A missing score routes the opportunity to the "Unscored" group where the user can review it manually.
 5. Output a single JSON object as your final message — nothing else.
 
-**Time budget: complete this task in at most two tool calls (one for LinkedIn redirect, one for the actual page). Do not retry failed fetches.**
+**Time budget: at most one fetch. Do not retry failed fetches.**
 
 ## Output
 
@@ -50,7 +52,7 @@ The object's fields:
   - **Never use `t0.gstatic.com/faviconV2` or any `*.gstatic.com` favicon URL — these return 404.**
   - Do not fetch any page for favicon discovery.
   - Only omit if you cannot determine the organization's name or domain.
-- `score` (integer 0–100) — alignment score between the opportunity and the user's profile and work experience
+- `score` (integer 0–100, optional) — alignment score between the opportunity and the user's profile and work experience. **Omit entirely if you don't have enough information to score honestly** (e.g. the URL fetch returned a login wall and the input `description` is too thin to judge fit). Do not emit `null`; just leave the key out. Same for `score_explanation` — omit it when `score` is omitted.
   - Use this calibration:
     - **95–100** — 95%+ of required skills/experience match; role is an obvious fit with no meaningful gaps.
     - **85–94** — ~90% match; at most a minor gap that would not block hiring.
