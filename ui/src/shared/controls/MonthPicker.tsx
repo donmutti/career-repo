@@ -71,6 +71,11 @@ export function MonthPicker({value, onChange, placeholder = 'Pick a month'}: Mon
               '--rdp-nav-height': '2.25rem',
             } as CSSProperties}
           />
+          {selected && (
+            <div className="flex justify-end px-1 pb-1">
+              <button type="button" className="secondary text-sm" onClick={() => handleSelect(undefined)}>Clear</button>
+            </div>
+          )}
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>
