@@ -3,6 +3,7 @@ import {MoreVertical, Pencil, Trash2} from 'lucide-react'
 import {DropdownButton} from '@/shared/controls/buttons/DropdownButton'
 import {IconButton} from '@/shared/controls/buttons/IconButton'
 import {ConfirmationDialog} from '@/shared/controls/dialogs/ConfirmationDialog'
+import {formatMonthYear} from '@/shared/utils/FormatUtils'
 
 interface ProjectRowProps {
   name: string
@@ -16,7 +17,7 @@ interface ProjectRowProps {
 
 export function ProjectRow({name, description, status, start_date, end_date, onEdit, onDelete}: ProjectRowProps) {
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const dateRange = start_date ? [start_date, end_date ?? 'Present'].join(' – ') : null
+  const dateRange = start_date ? [formatMonthYear(start_date), end_date ? formatMonthYear(end_date) : 'Present'].join(' – ') : null
 
   const menuItems = [
     ...(onEdit ? [{label: 'Edit', icon: <Pencil size={14}/>, onClick: onEdit}] : []),

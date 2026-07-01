@@ -18,6 +18,17 @@ function parseUtc(value: string): Date {
   return new Date(/[Z+]/.test(value) ? value : value + 'Z')
 }
 
+const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+export function formatMonthYear(value: string | null | undefined): string {
+  if (!value) return ''
+  const m = /^(\d{4})-(\d{2})/.exec(value)
+  if (!m) return value
+  const monthIdx = parseInt(m[2], 10) - 1
+  if (monthIdx < 0 || monthIdx > 11) return value
+  return `${MONTH_ABBR[monthIdx]} ${m[1]}`
+}
+
 export function formatDate(value: string): string {
   const d = parseUtc(value)
   const now = new Date()

@@ -2,6 +2,7 @@ import {CSSProperties, useState} from 'react'
 import {DayPicker} from 'react-day-picker'
 import * as Popover from '@radix-ui/react-popover'
 import 'react-day-picker/src/style.css'
+import {formatMonthYear} from '@/shared/utils/FormatUtils'
 
 interface MonthPickerProps {
   value?: string        // YYYY-MM
@@ -13,11 +14,6 @@ function parseMonth(s?: string): Date | undefined {
   if (!s) return undefined
   const d = new Date(s + '-01T00:00:00')
   return isNaN(d.getTime()) ? undefined : d
-}
-
-function formatDisplay(d?: Date): string {
-  if (!d) return ''
-  return d.toLocaleDateString(undefined, {year: 'numeric', month: 'short'})
 }
 
 export function MonthPicker({value, onChange, placeholder = 'Pick a month'}: MonthPickerProps) {
@@ -42,7 +38,7 @@ export function MonthPicker({value, onChange, placeholder = 'Pick a month'}: Mon
           type="button"
           className={`w-full text-left px-2 py-1 hoverable ${selected ? 'text-label-darker' : 'text-label-medium'}`}
         >
-          {selected ? formatDisplay(selected) : placeholder}
+          {selected ? formatMonthYear(value) : placeholder}
         </button>
       </Popover.Trigger>
       <Popover.Portal>

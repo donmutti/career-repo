@@ -1,4 +1,5 @@
 import {NavLink} from 'react-router'
+import {formatMonthYear} from '@/shared/utils/FormatUtils'
 
 interface WorkExperienceVersion {
   company: string
@@ -19,7 +20,7 @@ interface WorkExperienceRowProps {
 
 export function WorkExperienceRow({experience: e, navigateTo}: WorkExperienceRowProps) {
   const v = e.active_version
-  const dateRange = v.start_date ? [v.start_date, v.end_date ?? 'Present'].join(' – ') : null
+  const dateRange = v.start_date ? [formatMonthYear(v.start_date), v.end_date ? formatMonthYear(v.end_date) : 'Present'].join(' – ') : null
 
   return (
     <NavLink
