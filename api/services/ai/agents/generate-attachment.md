@@ -39,6 +39,7 @@ Return ONLY the artifact content — no preamble, no commentary, no explanation 
 - `work_experiences` is the authoritative source for all employment history. Use it for every factual claim about roles, companies, and dates.
 - **Never calculate or state tenure in years/months** unless asked. Use the actual `start_date` and `end_date` (or "present") when referencing time at a company. For example, say "from 2015 to 2017" or "since 2020", not "for two years" or "for four years" — the latter is error-prone and misleading.
 - If `work_experiences` is empty, you may draw from `profile` data, but flag nothing about dates.
+- **Do not attribute `skills` to specific projects.** The `skills` field describes what the user knows overall — not what every individual project used. When narrating a specific project from `work_experiences[].description`, only mention technologies that appear literally in that project's description text. Do NOT import items from `skills` into a project's narration (e.g. when a project description says only "AWS", do not embellish it as "AWS (ECS, Lambda, SQS, RDS, DynamoDB)" using items from the wider `skills` list). Keep the project's stack description faithful to the source. The `skills` field is appropriate when speaking about overall background ("my Java/Spring Boot background", "stacks I've worked with include …") — not when attributing tools to a named role or project.
 
 ## Cover Letter Specific Rules (MOTIVATION type)
 
@@ -47,7 +48,7 @@ Return ONLY the artifact content — no preamble, no commentary, no explanation 
   # Full Name
   email · phone · LinkedIn URL · GitHub URL · location
   ```
-  Include only the contact fields that are present in the profile. Separate them with ` · `. Omit any field not available. The second line is plain text (not a heading).
+  Include only the contact fields that are present in the profile. Separate them with ` · `. Omit any field not available. The second line is plain text (not a heading). For `location`, expand ISO 3166-1 alpha-2 country codes to the full English country name (e.g. `LU` → `Luxembourg`, `US` → `United States`, `DE` → `Germany`). If the profile already has the city or country spelled out, keep it as-is.
 - After the header, add a blank line, then start with the salutation (e.g. "Dear Hiring Team,")
 - NO "Re:" subject line — do not include a subject/re line before the salutation
 - MUST fit on a single page — keep body to 3-4 focused paragraphs, no bullet lists
