@@ -98,6 +98,7 @@ export const opportunities = {
   get: (id: string) => apiFetch<unknown>(`/opportunities/${id}`),
   create: (data: unknown) => apiFetch<unknown>('/opportunities', {method: 'POST', body: JSON.stringify(data)}),
   patch: (id: string, data: unknown) => apiFetch<unknown>(`/opportunities/${id}`, {method: 'PATCH', body: JSON.stringify(data)}),
+  archiveAll: (ids: string[], closeReason: string | null) => apiFetch<{ count: number }>('/opportunities/archive-all', {method: 'POST', body: JSON.stringify({ids, close_reason: closeReason})}),
   delete: (id: string) => apiFetch<void>(`/opportunities/${id}`, {method: 'DELETE'}),
   history: (id: string) => apiFetch<unknown>(`/opportunities/${id}/history`),
   agentRuns: (id: string) => apiFetch<unknown>(`/opportunities/${id}/agent-runs`),

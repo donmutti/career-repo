@@ -1,6 +1,6 @@
 import {useEffect, useState} from 'react'
 import {useNavigate, useOutletContext, useParams} from 'react-router'
-import {ArrowDownUp, Briefcase, LayoutList} from 'lucide-react'
+import {Archive, ArrowDownUp, Briefcase, LayoutList, MoreVertical} from 'lucide-react'
 import {LocalStorageUtils} from '@/shared/utils/LocalStorageUtils'
 import {JOB_GROUP_BY_OPTIONS, JobGroupByMode, Opportunity, STATUS_LABELS} from '@/app/opportunities/OpportunityTypes'
 import {filterByTimeWindow} from '@/shared/controls/views/TimeWindowTypes'
@@ -16,6 +16,7 @@ import {JobView} from './JobView'
 import {AddJobBar} from './AddJobBar'
 import {useOpportunities} from '@/app/opportunities/useOpportunities'
 import {ScoreDialog} from '@/shared/controls/dialogs/ScoreDialog'
+import {ReasonDialog} from '@/app/inbox/ReasonDialog'
 import {useMutation} from '@tanstack/react-query'
 import {opportunities as opApi} from '@/services/client'
 import {queryClient} from '@/services/queryClient'
@@ -28,6 +29,7 @@ export default function JobListPage() {
   const [listWidth, setListWidth] = useState(() => LocalStorageUtils.get('pane.opportunities.list', 550))
   const [groupByMode, setGroupByMode] = useState<JobGroupByMode>(() => LocalStorageUtils.get('pane.jobs.groupBy', 'status'))
   const [scoreDialogOpportunity, setScoreDialogOpportunity] = useState<Opportunity | null>(null)
+  const [archiveReasonOpen, setArchiveReasonOpen] = useState(false)
 
   const {timeWindow, setActiveType, statusFilter} = useOutletContext<OpportunityContext>()
 
@@ -52,6 +54,13 @@ export default function JobListPage() {
     ? typedJobs.filter(o => o.active_version.is_starred)
     : filterByTimeWindow(typedJobs, timeWindow)
   const jobs = inWindow.filter(o => !statusFilter || o.active_version.status === statusFilter)
+
+  const archivable = jobs.filter(o => o.active_version.status !== 'closed')
+
+  async function handleArchiveAll(reason: string | null) {
+    await opApi.archiveAll(archivable.map(o => o.id), reason)
+    queryClient.invalidateQueries({queryKey: queryKeys.opportunities})
+  }
 
   const byStatus = jobs.reduce<Record<string, Opportunity[]>>((acc, o) => {
     ;(acc[o.active_version.status] ??= []).push(o)
@@ -95,6 +104,13 @@ export default function JobListPage() {
                     },
                     checked: groupByMode === mode,
                   })),
+                ]}
+                align="end"
+              />
+              <DropdownButton
+                trigger={<IconButton icon={MoreVertical} label="More options"/>}
+                items={[
+                  {label: `Archive all ${archivable.length}...`, icon: <Archive size={14}/>, onClick: () => setArchiveReasonOpen(true), danger: true, disabled: archivable.length === 0},
                 ]}
                 align="end"
               />
@@ -168,6 +184,13 @@ export default function JobListPage() {
         title={scoreDialogOpportunity?.active_version.title}
         organizationName={scoreDialogOpportunity?.active_version.organization_name}
         url={scoreDialogOpportunity?.url}
+      />
+      <ReasonDialog
+        open={archiveReasonOpen}
+        onOpenChange={setArchiveReasonOpen}
+        title={`Why archiving ${archivable.length} ${archivable.length === 1 ? 'job' : 'jobs'}?`}
+        submitLabel="Archive all"
+        onSubmit={handleArchiveAll}
       />
     </>
   )

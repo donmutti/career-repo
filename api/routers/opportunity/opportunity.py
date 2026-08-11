@@ -114,6 +114,22 @@ def get_opportunity(opportunity_id: str):
     return opp
 
 
+def _archive_opportunity(opportunity: Opportunity, close_reason: Optional[str]) -> Opportunity:
+    """Transition an opportunity to closed, stamping the timestamp, recording the decline reason, and writing an archive note."""
+    now = datetime.now(timezone.utc)
+    enriched = opportunity.active_version.model_copy(update={
+        "status": OpportunityStatus.CLOSED,
+        "closed_at": now,
+    })
+    result = opp_dao.update(opportunity.id, enriched)
+    not_for_me = decline_reason_dao.get(NOT_FOR_ME_ID)
+    not_for_me_text = not_for_me.text if not_for_me else "Not for me"
+    is_not_for_me = not close_reason or close_reason == not_for_me_text
+    decline_reason_dao.record(None if is_not_for_me else close_reason)
+    comment_dao.create(opportunity.id, CommentVersion(body=f"Archived: {close_reason or not_for_me_text}"))
+    return result
+
+
 @router.patch("/{opportunity_id}", response_model=Opportunity)
 def update_opportunity(opportunity_id: str, request: UpdateOpportunityRequestDto):
     """Update opportunity fields (creates a new version)."""
@@ -124,31 +140,40 @@ def update_opportunity(opportunity_id: str, request: UpdateOpportunityRequestDto
     if not updates:
         return opportunity
     typed = _parse_version_fields(updates)
-    # Stamp lifecycle timestamp when status transitions
     new_status = typed.get("status")
     prev_status = opportunity.active_version.status
+    # Archiving is handled by the shared helper (records reason + writes note)
+    if new_status == OpportunityStatus.CLOSED and prev_status != OpportunityStatus.CLOSED:
+        return _archive_opportunity(opportunity, request.close_reason)
+    # Stamp lifecycle timestamp when status transitions
     if new_status is not None and new_status != prev_status:
         now = datetime.now(timezone.utc)
         if new_status == OpportunityStatus.STARTED:
             typed["started_at"] = now
         elif new_status == OpportunityStatus.COMPLETED:
             typed["completed_at"] = now
-        elif new_status == OpportunityStatus.CLOSED:
-            typed["closed_at"] = now
     enriched = opportunity.model_copy(update={
         "active_version": opportunity.active_version.model_copy(update=typed)
     })
-    result = opp_dao.update(opportunity_id, enriched.active_version)
-    # On archive: record reason and write note (status transitioning to closed)
-    if new_status == OpportunityStatus.CLOSED and prev_status != OpportunityStatus.CLOSED:
-        close_reason = request.close_reason
-        not_for_me = decline_reason_dao.get(NOT_FOR_ME_ID)
-        not_for_me_text = not_for_me.text if not_for_me else "Not for me"
-        is_not_for_me = not close_reason or close_reason == not_for_me_text
-        decline_reason_dao.record(None if is_not_for_me else close_reason)
-        note = f"Archived: {close_reason or not_for_me_text}"
-        comment_dao.create(opportunity_id, CommentVersion(body=note))
-    return result
+    return opp_dao.update(opportunity_id, enriched.active_version)
+
+
+class ArchiveAllDto(BaseModel):
+    ids: List[str]
+    close_reason: Optional[str] = None
+
+
+@router.post("/archive-all")
+def archive_all(body: ArchiveAllDto):
+    """Archive every given opportunity that isn't already closed. Returns the count archived."""
+    count = 0
+    for opportunity_id in body.ids:
+        opportunity = opp_dao.get(opportunity_id)
+        if not opportunity or opportunity.active_version.status == OpportunityStatus.CLOSED:
+            continue
+        _archive_opportunity(opportunity, body.close_reason)
+        count += 1
+    return {"count": count}
 
 
 class SetCompensationRequest(BaseModel):
