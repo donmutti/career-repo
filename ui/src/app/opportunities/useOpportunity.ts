@@ -126,7 +126,7 @@ export function useOpportunity(opportunityId: string, options: UseOpportunityOpt
   })
 
   const coverLetterMutation = useMutation({
-    mutationFn: () => opApi.generateCoverLetter(opportunityId),
+    mutationFn: (payload?: {instructions?: string}) => opApi.generateCoverLetter(opportunityId, payload),
     onSuccess: (data) => {
       setCoverLetterRunId(data.run_id)
       queryClient.invalidateQueries({queryKey: queryKeys.activeCoverLetterRun(opportunityId)})

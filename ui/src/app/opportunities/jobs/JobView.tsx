@@ -19,6 +19,7 @@ import {AttachmentRow} from '@/app/opportunities/AttachmentRow'
 import {SimilarOpportunityRow} from '@/app/opportunities/SimilarOpportunityRow'
 import {MergeIntoDialog} from '@/app/opportunities/MergeIntoDialog'
 import {ReasonDialog} from '@/app/inbox/ReasonDialog'
+import {CoverLetterDialog} from './CoverLetterDialog'
 import {CompensationDialog} from './CompensationDialog'
 import {WORK_MODE_LABELS, WorkModeDialog} from './WorkModeDialog'
 import {ScoreBadge} from '@/shared/controls/buttons/ScoreBadge'
@@ -48,6 +49,7 @@ export function JobView({opportunityId}: JobViewProps) {
   const [locationDialogOpen, setLocationDialogOpen] = useState(false)
   const [locationInput, setLocationInput] = useState('')
   const [workModeDialogOpen, setWorkModeDialogOpen] = useState(false)
+  const [coverLetterDialogOpen, setCoverLetterDialogOpen] = useState(false)
 
   const {
     opportunity,
@@ -234,7 +236,7 @@ export function JobView({opportunityId}: JobViewProps) {
               isSourcing={isSourcing}
               isGeneratingCoverLetter={isGeneratingCoverLetter}
               onSource={() => source()}
-              onGenerateCoverLetter={() => generateCoverLetter()}
+              onGenerateCoverLetter={() => setCoverLetterDialogOpen(true)}
               onSetUrl={() => {
                 setUrlInput(opportunity.url ?? '');
                 setSetUrlDialogOpen(true)
@@ -295,7 +297,7 @@ export function JobView({opportunityId}: JobViewProps) {
                 : undefined
               }
               actions={isGeneratingCoverLetter ? [] : [{
-                icon: Plus, label: 'Generate cover letter', onClick: () => generateCoverLetter(), disabled: isChanging,
+                icon: Plus, label: 'Generate cover letter', onClick: () => setCoverLetterDialogOpen(true), disabled: isChanging,
               }]}
             >
               {attachmentList.length > 0
@@ -519,6 +521,12 @@ export function JobView({opportunityId}: JobViewProps) {
         title="Why archiving?"
         submitLabel="Archive"
         onSubmit={(reason) => patch({status: 'closed', close_reason: reason ?? 'Not for me'})}
+      />
+
+      <CoverLetterDialog
+        open={coverLetterDialogOpen}
+        onOpenChange={setCoverLetterDialogOpen}
+        onSubmit={(instructions) => generateCoverLetter(instructions ? {instructions} : undefined)}
       />
 
       {/* Delete dialog */}

@@ -32,6 +32,7 @@ Return ONLY the artifact content — no preamble, no commentary, no explanation 
 - Keep artifacts concise but complete
 - Use professional language and proper formatting
 - Avoid generic templates; make it personal and specific
+- **Instructions**: if `instructions` is present in the input, treat it as additional tone, style, and voice guidance that layers on top of `profile.active_version.voice_settings` — where the two conflict, `instructions` wins. It does not replace `voice_settings`; both apply, with `instructions` taking precedence.
 - **Voice settings**: if `profile.active_version.voice_settings` is present, it is the highest-priority instruction for tone, style, verbosity, and closing phrase. Follow it strictly for the entire body. If it specifies a preferred closing (e.g. "Best regards", "Kind regards", "Yours sincerely"), use that exact phrase. If no closing is specified, derive one that matches the tone described.
 
 ## Work Experience Rules

@@ -312,15 +312,22 @@ def get_active_cover_letter_run(opportunity_id: str):
     return {"run_id": None}
 
 
+class GenerateCoverLetterDto(BaseModel):
+    instructions: Optional[str] = None
+
+
 @router.post("/{opportunity_id}/cover-letter", status_code=202)
-async def generate_cover_letter(opportunity_id: str):
-    """Generate a cover letter for a Job opportunity. Runs in background; poll agent run for completion."""
+async def generate_cover_letter(opportunity_id: str, body: Optional[GenerateCoverLetterDto] = None):
+    """Generate a cover letter for a Job opportunity. Runs in background; poll agent run for completion.
+
+    Optional `instructions` layer one-off tone/style directives on top of the profile's voice settings for this run only.
+    """
     opportunity = opp_dao.get(opportunity_id)
     if not opportunity:
         raise HTTPException(status_code=404, detail="Opportunity not found")
     if opportunity.type != OpportunityType.JOB:
         raise HTTPException(status_code=400, detail="Cover letter can only be generated for Job opportunities")
-    handle = opp_service.generate_cover_letter(opportunity_id)
+    handle = opp_service.generate_cover_letter(opportunity_id, body.instructions if body else None)
     return {"run_id": handle.run_id}
 
 

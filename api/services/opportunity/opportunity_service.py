@@ -1,6 +1,7 @@
 """OpportunityService — AI-driven opportunity operations."""
 
 import logging
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -130,8 +131,11 @@ class OpportunityService:
         self._runtime.run(run, _run())
         return run
 
-    def generate_cover_letter(self, opportunity_id: str) -> AgentRun:
-        """Generate a cover letter for an opportunity. Returns a handle to the run."""
+    def generate_cover_letter(self, opportunity_id: str, instructions: Optional[str] = None) -> AgentRun:
+        """Generate a cover letter for an opportunity. Returns a handle to the run.
+
+        `instructions` are optional one-off tone/style directives that layer on top of the profile's voice settings for this generation only.
+        """
         opportunity = self._opp_dao.get(opportunity_id)
         profile = self._profile_dao.get()
         work_experiences = self._work_experience_dao.list_for_profile(profile.id) if profile else []
@@ -140,12 +144,15 @@ class OpportunityService:
 
         async def _generate():
             try:
-                result = await run.generate({
+                payload = {
                     "attachment_type": "cover_letter",
                     "opportunity": opportunity.model_dump(mode="json"),
                     "profile": profile.model_dump(mode="json") if profile else None,
                     "work_experiences": [we.model_dump(mode="json") for we in work_experiences] if work_experiences else [],
-                }, expects_json=False, timeout=180.0)
+                }
+                if instructions:
+                    payload["instructions"] = instructions
+                result = await run.generate(payload, expects_json=False, timeout=180.0)
                 md_content = result.output
             except Exception:
                 run.fail()
